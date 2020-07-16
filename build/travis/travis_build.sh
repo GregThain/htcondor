@@ -131,10 +131,10 @@ else
         cp $HOME/rpmbuild/RPMS/x86_64/*.rpm  osg-flock-negotiator/rpmbuild/
         rm osg-flock-negotiator/rpmbuild/{condor-annex-ec2,condor-bosco,condor-kbdd,condor-test,condor-vm-gahp,minicondor,condor-all}-*
         sudo docker build --build-arg EL=7 --build-arg VERSION=8.9.6 --build-arg BUILDDATE=`date +%Y%m%d` -t htcondor/base -f base/Dockerfile .
-        sudo docker build --build-arg EL=7 --build-arg BUILDDATE=`date +%Y%m%d` -t opensciencegrid/flock-negotiator -f osg-flock-negotiator/Dockerfile .
+        sudo docker build --build-arg EL=7 --build-arg BUILDDATE=`date +%Y%m%d` -t gthain/flock-negotiator -f osg-flock-negotiator/Dockerfile .
         if [[ -n "$DOCKER_USERNAME" ]]; then
             echo "$DOCKER_PASSWORD" | sudo docker login -u "$DOCKER_USERNAME" --password-stdin
-            sudo docker push opensciencegrid/flock-negotiator
+            sudo docker push gthain/flock-negotiator
         fi
     fi
 fi
