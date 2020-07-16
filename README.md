@@ -1,6 +1,6 @@
 # HTCondor
 
-This is a test commit for jenkins.
+This is another test commit for jenkins.
 
 [HTCondor](https://research.cs.wisc.edu/htcondor/) is a
 [Distributed High Throughput Computing](https://en.wikipedia.org/wiki/High-throughput_computing)
