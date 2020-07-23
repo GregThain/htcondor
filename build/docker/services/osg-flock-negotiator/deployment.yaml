@@ -5,6 +5,7 @@ metadata:
   labels:
     app: osg-flock-negotiator
 spec:
+  storageClassName: rook-ceph-block
   accessModes:
     - ReadWriteOnce
   resources:
@@ -29,6 +30,8 @@ spec:
       labels:
         app: osg-flock-negotiator
     spec:
+      nodeSelector:
+        storage: "rook"
       containers:
       - name: osg-flock-negotiator
         image: opensciencegrid/flock-negotiator:latest
