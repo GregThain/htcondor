@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: osg-flock-negotiator-pv-claim
+  name: osg-flock-negotiator-pv-claim2
   labels:
     app: osg-flock-negotiator
 spec:
@@ -10,7 +10,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 4Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34,7 +34,7 @@ spec:
         storage: "rook"
       containers:
       - name: osg-flock-negotiator
-        image: opensciencegrid/flock-negotiator:latest
+        image: gthain/flock-negotiator:latest
         volumeMounts:
         - name: negotiator-persistent-storage
           mountPath: /var/lib/condor/spool
@@ -42,13 +42,18 @@ spec:
           mountPath: /etc/condor/tokens-orig.d
         - name: negotiator-passwords
           mountPath: /etc/condor/passwords-orig.d
+        - name: negotiator-certs
+          mountPath: /etc/condor/certs-orig.d
       volumes:
       - name: negotiator-persistent-storage
         persistentVolumeClaim:
-          claimName: osg-flock-negotiator-pv-claim
+          claimName: osg-flock-negotiator-pv-claim2
       - name: negotiator-tokens
         secret:
           secretName: negotiator-tokens
       - name: negotiator-passwords
         secret:
           secretName: negotiator-passwords
+      - name: negotiator-certs
+        secret:
+          secretName: flock-opensciencegrid-org-credentials
