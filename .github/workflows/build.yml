@@ -17,5 +17,5 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Native Package Build
-        run: (ls -a && cd htcondor && ../build-on-linux.sh )
+        run: (./build-on-linux.sh)
 
