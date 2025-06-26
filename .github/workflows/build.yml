@@ -17,5 +17,5 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Native Package Build
-        run: (./build-on-linux.sh)
+        run: (./build-on-linux.sh .)
 
