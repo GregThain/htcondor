@@ -7,25 +7,25 @@ jobs:
   build:
     strategy:
       matrix:
-        build-container: [ 
-          "htcondor/nmi-build:x86_64_v2_AlmaLinux10-24090101",
-          "htcondor/nmi-build:x86_64_AlmaLinux8-24090100",
-          "htcondor/nmi-build:x86_64_AlmaLinux9-24090100",
-          "htcondor/nmi-build:x86_64_AlmaLinux10-24090100",
-          "htcondor/nmi-build:x86_64_AmazonLinux2023-24090100",
-          "htcondor/nmi-build:x86_64_Debian11-24090100",
-          "htcondor/nmi-build:x86_64_Debian12-24090100",
-          "htcondor/nmi-build:x86_64_openSUSE15-24090100",
-          "htcondor/nmi-build:x86_64_Ubuntu22-24090100",
-          "htcondor/nmi-build:x86_64_Ubuntu24-24090100",
-          "htcondor/nmi-build:x86_64_Fedora41-24090100"
+        instance: [ 
+        {"container":  "htcondor/nmi-build:x86_64_v2_AlmaLinux10-24090101"},
+        {"container":  "htcondor/nmi-build:x86_64_AlmaLinux8-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_AlmaLinux9-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_AlmaLinux10-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_AmazonLinux2023-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_Debian11-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_Debian12-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_openSUSE15-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_Ubuntu22-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_Ubuntu24-24090100"},
+        {"container":  "htcondor/nmi-build:x86_64_Fedora41-24090100"},
       ]
     # Host OS, doesn't really matter much, everything is run in a container
     runs-on: ubuntu-latest
 
     # Use htcondor build containers for the real work
     container:
-      image: ${{ matrix.build-container }}
+      image: ${{ matrix.instance.container }}
       env:
         OMP_NUM_THREADS: 4
       volumes:
