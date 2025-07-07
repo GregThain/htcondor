@@ -37,6 +37,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Native Package Build
         run: (./build-on-linux.sh .)
 
+  winbuild:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install VC++ Build Tools
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          distribution: strawberry
