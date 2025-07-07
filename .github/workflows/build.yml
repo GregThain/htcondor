@@ -41,6 +41,21 @@ jobs:
       - name: Native Package Build
         run: (./build-on-linux.sh .)
 
+  macbuild:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Homebrew
+        uses: Homebrew/install@v1
+
+      - name: Install dependencies
+        run: brew install perl
+
+      - name: Native Package Build
+        run: (cmake -GNinja -DWITH_VOMS:bool=false . && ninja -j4)
+
   winbuild:
     runs-on: windows-latest
     steps:
@@ -54,3 +69,9 @@ jobs:
         uses: shogo82148/actions-setup-perl@v1
         with:
           distribution: strawberry
+
+      - name: cmake configuration
+        run: (cmake .)
+
+      - name: build
+        run: (cmake --build . --config Release --parallel 4)
