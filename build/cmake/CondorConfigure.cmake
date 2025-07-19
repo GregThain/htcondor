@@ -24,17 +24,17 @@ if("${OS_NAME}" MATCHES "^WIN")
 
 	# The following is necessary for sdk/ddk version to compile against.
 	# lowest common denominator is Vista (0x600), except when building with vc9, then we can't count on sdk support.
-	add_definitions(-D_WIN32_WINNT=_WIN32_WINNT_WIN7)
-	add_definitions(-DWINVER=_WIN32_WINNT_WIN7)
+	# GGT add_definitions(-D_WIN32_WINNT=_WIN32_WINNT_WIN7)
+	# GGT add_definitions(-DWINVER=_WIN32_WINNT_WIN7)
 
 	# Turn on coroutine support
 	add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/await:strict>)
 
-	if (MSVC90)
-	    add_definitions(-DNTDDI_VERSION=NTDDI_WINXP)
-	else()
-	    add_definitions(-DNTDDI_VERSION=NTDDI_WIN7)
-	endif()
+	#if (MSVC90)
+	#    add_definitions(-DNTDDI_VERSION=NTDDI_WINXP)
+	#else()
+	#    add_definitions(-DNTDDI_VERSION=NTDDI_WIN7)
+	#endif()
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
 	set(CMD_TERM \r\n)
