@@ -73,7 +73,7 @@ jobs:
           distribution: strawberry
 
       - name: cmake configuration
-        run: (cmake -G "Visual Studio 17 2022" .)
+        run: (cmake -G "Visual Studio 17 2022" -DWITH_KRB5:bool=false .)
 
       - name: build
         run: (cmake --build . --verbose --config Release --parallel 4)
