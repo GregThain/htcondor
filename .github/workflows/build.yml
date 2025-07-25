@@ -54,7 +54,7 @@ jobs:
           ninja -j4 install
 
       - name: test
-        run: ( cd __build && ctest -VV -j 1)
+        run: ( id && ls -l && cd __build && ctest -j 40)
 
       - name: Upload Artifact
         if: always()
