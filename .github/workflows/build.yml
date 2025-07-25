@@ -57,10 +57,10 @@ jobs:
         run: ( cd __build && ctest -j 20)
 
       - name: Upload Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-example
-          if: always()
           path: __build/src/
           retention-days: 2
           overwrite: true
