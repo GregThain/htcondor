@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         instance: [ 
         {"img": "ubuntu-latest", "container": "htcondor/nmi-build:x86_64_v2_AlmaLinux10-24090101"},
@@ -25,7 +26,6 @@ jobs:
       ]
     # Host OS and CPU
     runs-on: ${{ matrix.instance.img }}
-    fail-fast: false
 
     # Use htcondor build containers for the real work
     container:
