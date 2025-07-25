@@ -48,13 +48,11 @@ jobs:
             export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
             export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
           fi
-          mkdir __build 
-          cd __build 
-          cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. 
-          ninja -j4 install
+        mkdir __build && chown condorauto:condorauto __build && chmod 0777 __build
+        su condorauto -c "cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install"
 
       - name: test
-        run: ( id && ls -l && cd __build && ctest -j 40)
+        run: ( su condorauto -c ctest -j 40)
 
       - name: Upload Artifact
         if: always()
