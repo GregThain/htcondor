@@ -55,8 +55,11 @@ jobs:
       - name: Install dependencies
         run: brew install perl
 
-      - name: Native Package Build
-        run: (cmake -GNinja -DWITH_VOMS:bool=false . && ninja -j4)
+      - name: Build
+        run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4)
+
+      - name: Test
+        run: (cd __build && ctest -j 20)
 
   winbuild:
     runs-on: windows-latest
