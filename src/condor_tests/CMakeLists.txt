@@ -995,19 +995,19 @@ if (WINDOWS)
 # in this usual way.
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/timed_cmd.exe
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp
-			COMMAND cl /O0 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp)
+			COMMAND cl /O1 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp)
 add_custom_target(timed_cmd_exe ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp ${CMAKE_CURRENT_BINARY_DIR}/timed_cmd.exe tests)
 set_target_properties(timed_cmd_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TEST_TARGET_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/appendmsg.exe
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/appendmsg.cpp
-			COMMAND cl /O0 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/appendmsg.cpp)
+			COMMAND cl /O1 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/appendmsg.cpp)
 add_custom_target(appendmsg_exe ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/appendmsg.cpp ${CMAKE_CURRENT_BINARY_DIR}/appendmsg.exe tests)
 set_target_properties(appendmsg_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TEST_TARGET_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sleep.exe
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp
-			COMMAND cl /O0 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp)
+			COMMAND cl /O1 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp)
 add_custom_target(sleep_exe ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp ${CMAKE_CURRENT_BINARY_DIR}/sleep.exe tests)
 set_target_properties(sleep_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TEST_TARGET_DIR})
 
@@ -1017,7 +1017,7 @@ set_target_properties(sleep_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TEST_TARGE
 # the builds and avoid the collision
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sleepw.exe
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp
-			COMMAND cl /O0 /GS- /DNOCONSOLE=1 /Fesleepw.exe ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp)
+			COMMAND cl /O1 /GS- /DNOCONSOLE=1 /Fesleepw.exe ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp)
 add_custom_target(sleepw_exe ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sleep.cpp ${CMAKE_CURRENT_BINARY_DIR}/sleepw.exe sleep_exe tests)
 set_target_properties(sleepw_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TEST_TARGET_DIR})
 
