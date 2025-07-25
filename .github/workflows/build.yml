@@ -43,7 +43,15 @@ jobs:
       #  run: (./build-on-linux.sh .)
 
       - name: Build
-        run: ( echo "/opt/rh/gcc-toolset-14/root/usr/bin" >> "$GITHUB_PATH" && mkdir __build && cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j4 install)
+        run: |
+          if [ -f "/opt/rh/gcc-toolset-14/root/usr/bin/gcc" ]; then
+            export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
+            export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+          fi
+          mkdir __build 
+          cd __build 
+          cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. 
+          ninja -j4 install
 
       - name: test
         run: ( cd __build && ctest -j 20)
