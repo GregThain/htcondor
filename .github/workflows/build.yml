@@ -42,7 +42,7 @@ jobs:
       #  run: (./build-on-linux.sh .)
 
       - name: Build
-        run: ( mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
+        run: ( mkdir __build && cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
       - name: test
         run: ( cd __build && ctest -j 20)
