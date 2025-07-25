@@ -56,6 +56,15 @@ jobs:
       - name: test
         run: ( cd __build && ctest -j 20)
 
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.instance.container }}
+          if: always()
+          path: .
+          retention-days: 2
+          overwrite: true
+
   macbuild:
     runs-on: macos-latest
     steps:
