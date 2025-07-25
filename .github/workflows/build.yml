@@ -54,15 +54,15 @@ jobs:
           ninja -j4 install
 
       - name: test
-        run: ( cd __build && ctest -j 20)
+        run: ( cd __build && ctest -VV -j 20)
 
       - name: Upload Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-example
-          path: __build/src/
-          retention-days: 2
+          name: build-for-${{matrix.instance.container}}
+          path: __build/
+          retention-days: 1
           overwrite: true
 
   macbuild:
