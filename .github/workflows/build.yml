@@ -38,8 +38,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Native Package Build
-        run: (./build-on-linux.sh .)
+      #- name: Native Package Build
+      #  run: (./build-on-linux.sh .)
+
+      - name: Build
+        run: ( mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
+
+      - name: test
+        run: ( cd __build && ctest -j 20)
 
   macbuild:
     runs-on: macos-latest
@@ -67,7 +73,7 @@ jobs:
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
       - name: Test
-        run: (cd __build && ctest -j 20 -VV)
+        run: (cd __build && ctest -j 20 )
 
   winbuild:
     runs-on: windows-latest
