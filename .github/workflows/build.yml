@@ -53,7 +53,7 @@ jobs:
           su condorauto -c "cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install"
 
       - name: test
-        run: ( su condorauto -c ctest -j 40)
+        run: ( su condorauto -c "ctest -j 40")
 
       - name: Upload Artifact
         if: always()
