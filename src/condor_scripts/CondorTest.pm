@@ -1524,7 +1524,7 @@ sub ParseMachineAds
 	my $value;
 
 	my @ads = ();
-	my $res = runCondorTool("condor_status -l $machine",\@ads,2,{emit_output=>0});
+	my $res = runCondorTool("condor_status -l",\@ads,2,{emit_output=>0});
     
     TestDebug( "reading machine ads from $machine...\n" ,5);
     #while( <PULL> )
