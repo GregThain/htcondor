@@ -77,6 +77,10 @@ get_daemon_name( const char* name )
 		std::string fqdn = get_fqdn_from_hostname(name);
 		if(! fqdn.empty()) {
 			daemon_name = strdup(fqdn.c_str());
+		} else {
+			if (strchr(name, '.') == nullptr) {
+				daemon_name = strdup(name);
+			}
 		}
 	}
 
