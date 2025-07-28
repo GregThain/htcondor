@@ -34,7 +34,7 @@ jobs:
         OMP_NUM_THREADS: 4
       volumes:
         - my_docker_volume:/volume_mount
-      options: --cpus 4
+      options: --cpus 4 --hostname test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
