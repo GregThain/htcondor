@@ -1,4 +1,4 @@
-name: Build HTCondor native packages
+name: Build and test HTCondor
 
 on:
   push:
@@ -30,6 +30,7 @@ jobs:
     # Use htcondor build containers for the real work
     container:
       image: ${{ matrix.instance.container }}
+      options: --hostname build.chtc.notwisc.edu
       env:
         OMP_NUM_THREADS: 4
       volumes:
