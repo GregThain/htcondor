@@ -1,4 +1,4 @@
-name: Build and test HTCondor
+name: Build HTCondor native packages
 
 on:
   push:
@@ -30,11 +30,11 @@ jobs:
     # Use htcondor build containers for the real work
     container:
       image: ${{ matrix.instance.container }}
-      options: --cpus 4 --hostname build
       env:
         OMP_NUM_THREADS: 4
       volumes:
         - my_docker_volume:/volume_mount
+      options: --cpus 4
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -67,7 +67,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-for-example-new
+          name: build-for-example
           path: __build/
           retention-days: 1
           overwrite: true
