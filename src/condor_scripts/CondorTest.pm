@@ -2161,13 +2161,6 @@ sub spawn_cmd
 sub getFqdnHost {
     my $host = hostfqdn();
     CondorUtils::fullchomp($host)
-    # Fixup hostnames ending in two dots when no domain is set
-    if ($host =~ /\.$/) {
-      chop($host);
-    }
-    if ($host =~ /\.$/) {
-      chop($host);
-    }
     return($host);
 }
 
