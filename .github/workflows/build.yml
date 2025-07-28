@@ -30,7 +30,7 @@ jobs:
     # Use htcondor build containers for the real work
     container:
       image: ${{ matrix.instance.container }}
-      options: --cpus 4 --hostname build.chtc.notwisc.edu
+      options: --cpus 4 --hostname build
       env:
         OMP_NUM_THREADS: 4
       volumes:
