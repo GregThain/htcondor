@@ -68,7 +68,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-for-example
-          path: __build/
+          path: __build/test.xml
           retention-days: 1
           overwrite: true
 
