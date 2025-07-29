@@ -1,4 +1,4 @@
-name: Build HTCondor native packages
+name: Build and Test HTCondor
 
 on:
   push:
@@ -66,13 +66,19 @@ jobs:
 
       - name: test
         run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40")
+      - name: dashboard
+        if: always()
+        run: |
+          echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | ------ |" >> $GITHUB_STEP_SUMMARY
+          grep '<testcase name="' test.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tests-for-${{ steps.platform_name.outputs.platform_name }}
-          path: __build/src/condor_tests/cmd_q_shows-name_ctest/cmd_q_shows-name.run.out
+          path: __build/test.xml
           retention-days: 1
           overwrite: true
 
