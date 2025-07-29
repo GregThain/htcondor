@@ -71,7 +71,7 @@ jobs:
         run: |
           echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | ------ |" >> $GITHUB_STEP_SUMMARY
-          grep '<testcase name="' test.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
+          grep '<testcase name="' __build/test.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Artifact
         if: always()
