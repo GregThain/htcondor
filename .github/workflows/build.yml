@@ -78,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tests-for-${{ steps.platform_name.outputs.platform_name }}
-          path: __build/test.xml
+          path: __build/src/condor_tests/test_guidance_commands_ctest/test_guidance_commands.run.out
           retention-days: 1
           overwrite: true
 
