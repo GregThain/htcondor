@@ -25,7 +25,7 @@ use warnings;
 use Carp;
 use POSIX;
 use POSIX qw/strftime/;
-use Net::Domain qw(hostfqdn);
+use Sys::Hostname;
 use Cwd;
 use Time::Local;
 use File::Basename;
@@ -2159,15 +2159,7 @@ sub spawn_cmd
 ##############################################################################
 
 sub getFqdnHost {
-    my $host = hostfqdn();
-    CondorUtils::fullchomp($host);
-    # Fixup hostnames ending in two dots when no domain is set
-    if ($host =~ /\.$/) {
-      chop($host);
-    }
-    if ($host =~ /\.$/) {
-      chop($host);
-    }
+    my $host = hostname();
     return($host);
 }
 
