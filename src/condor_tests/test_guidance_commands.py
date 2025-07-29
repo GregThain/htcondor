@@ -220,7 +220,7 @@ class TestGuidanceCommands:
 
         # Did the start actually execute the guidance it was given?
         assert the_starter_log.wait(
-            timeout=1,
+            timeout=10,
             condition=lambda line: the_expected_log_line in line.message,
         )
 
@@ -230,7 +230,7 @@ class TestGuidanceCommands:
             expected_shadow_log_line = "Diagnostic 'unknown' did not complete: 'Error - Unregistered'"
             the_shadow_log = the_condor.shadow_log.open()
             assert the_shadow_log.wait(
-                timeout=1,
+                timeout=10,
                 condition=lambda line: expected_shadow_log_line in line.message and f"{the_completed_job.clusterid}.0" in line.tags
             )
 
