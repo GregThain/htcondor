@@ -138,7 +138,7 @@ jobs:
          - name: Download all artifacts
            uses: actions/download-artifact@v4
 
-         - Name: create_summary
+         - name: create_summary
            run: |
               ls
               unzip *.zip
