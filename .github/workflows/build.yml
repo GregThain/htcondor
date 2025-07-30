@@ -36,7 +36,7 @@ jobs:
         - my_docker_volume:/volume_mount
       options: --cpus 4
     steps:
-      - name: Make Platform Name
+      - name: Create Platform Name
         id: platform_name
         run: echo "platform_name=$(echo ${{ matrix.instance.container }} | sed -e 's/htcondor\/nmi-build://g' -e 's/-[0-9]*$//g')" >> $GITHUB_OUTPUT
 
@@ -54,6 +54,7 @@ jobs:
             export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
           fi
 
+          # Similar hackery for openSUSE
           if [ -f "/usr/bin/gcc-11" ] 
           then
             export CC=/usr/bin/gcc-11
@@ -66,12 +67,13 @@ jobs:
 
       - name: test
         run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40")
-      - name: dashboard
-        if: always()
-        run: |
-          echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | ------ |" >> $GITHUB_STEP_SUMMARY
-          grep '<testcase name="' __build/test.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
+
+      #- name: dashboard
+      #  if: always()
+      #  run: |
+      #    echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
+      #    echo "| :--- | ------ |" >> $GITHUB_STEP_SUMMARY
+      #    grep '<testcase name="' __build/test.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Artifact
         if: always()
@@ -129,3 +131,20 @@ jobs:
 
       - name: build
         run: (cmake --build . --verbose --config Release --parallel 4)
+
+   dashboard:
+     needs: [build, macbuild, winbuild]
+     runs-on: ubuntu-latest
+     if: always()
+     steps:
+          - name: Download all artifacts
+            uses: actions/download-artifact@v4
+
+          - Name: create_summary
+            run: |
+               ls
+               unzip *.zip
+               echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
+               echo "| :--- | ------ |" >> $GITHUB_STEP_SUMMARY
+               grep '<testcase name="' *.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
+
