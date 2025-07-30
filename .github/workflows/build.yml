@@ -78,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tests-for-${{ steps.platform_name.outputs.platform_name }}
-          path: __build/src/condor_tests/test_guidance_commands_ctest/test_guidance_commands.run.out
+          path: __build/test.xml
           retention-days: 1
           overwrite: true
 
@@ -140,8 +140,8 @@ jobs:
 
          - name: create_summary
            run: |
-              ls
-              unzip *.zip
+              ls -R
+              unzip */*.zip
               echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
               echo "| :--- | ------ |" >> $GITHUB_STEP_SUMMARY
               grep '<testcase name="' *.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
