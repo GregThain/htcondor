@@ -145,7 +145,7 @@ jobs:
               print("Hello from Python")
               os.system("ls -CFR")
 
-              with open(os.environ['GITHUB_STEP_SUMMARY'], 'wa') as f:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
                 f.write("| Name | Result |")
                 f.write("| :--- | ------ |")
                 f.write("| test1 | :green_circle: |")
