@@ -139,7 +139,7 @@ jobs:
            uses: actions/download-artifact@v4
 
          - name: create_summary
-           shell: /usr/bin/python3
+           shell: python
            run: |
               import os
               print("Hello from Python")
