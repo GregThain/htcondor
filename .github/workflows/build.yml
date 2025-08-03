@@ -71,7 +71,7 @@ jobs:
         run: |
           echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | ------ |" >> $GITHUB_STEP_SUMMARY
-          grep '<testcase name="' __build/test.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
+          # grep '<testcase name="' __build/test.xml  | tr '"' ' ' | awk '{print "| "$3" | "$9" |"}' | sed -e 's/ run /:green_circle:/ ' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Artifact
         if: always()
@@ -146,8 +146,8 @@ jobs:
               os.system("ls -CFR")
 
               with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                f.write("| Name | Result |")
-                f.write("| :--- | ------ |")
-                f.write("| test1 | :green_circle: |")
+                f.write("| Name | Result |\n")
+                f.write("| :--- | ------ |\n")
+                f.write("| test1 | :green_circle: |"\n)
 
 
