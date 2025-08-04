@@ -2838,6 +2838,11 @@ default=30
 type=int
 tags=schedd,starter
 
+[LOCAL_UNIVERSE_CGROUP_ENFORCEMENT]
+default=false
+type=bool
+tags=starter
+
 [STARTER_JOB_HOOK_KEYWORD]
 default=
 type=string
@@ -5729,6 +5734,9 @@ type=string
 default=scitoken:2.0
 type=string
 
+[TRUSTED_VAULT_HOSTS]
+default=
+type=string
 
 # standard API endpoints for common OAuth token providers
 [BOX_AUTHORIZATION_URL]

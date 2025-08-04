@@ -840,6 +840,7 @@
 #define ATTR_USER  "User"
 #define ATTR_USERREC_OPT_prefix "_userrec_opt_"
 #define ATTR_USERREC_OPT_CREATE "_userrec_opt_create"
+#define ATTR_USERREC_OPT_CREATE_PROJECT "_userrec_opt_create_project"
 #define ATTR_USERREC_OPT_UPDATE "_userrec_opt_update"
 #define ATTR_USERREC_OPT_ME "_userrec_opt_me"
 #define ATTR_USERREC_OPT_CREATE_DEPRECATED "create"
@@ -1238,6 +1239,7 @@ extern const char ATTR_SEC_AUTHENTICATED_USER [];
 #define ATTR_CHECK_EXPR  "CheckExpr"
 #define ATTR_START_EXPR  "StartExpr"
 #define ATTR_PROJECTION  "Projection"
+#define ATTR_PROJECT_NAME "ProjectName"
 #define ATTR_LAST_DRAIN_START_TIME  "LastDrainStartTime"
 #define ATTR_LAST_DRAIN_STOP_TIME  "LastDrainStopTime"
 
