@@ -158,7 +158,7 @@ jobs:
                header += f"{platform}|"
                separator += "---|"
 
-             with open(env["GITHUB_STEP_SUMMARY"], "a") as f:
+             with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
                f.write(header + "\n")
                f.write(separator + "\n")
 
@@ -174,5 +174,5 @@ jobs:
                  line += f"{results[platform][test]} |"
                else:
                  line += " - |"
-                 with open(env["GITHUB_STEP_SUMMARY"], "a") as f:
+                 with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
                    f.write(line + "\n")
