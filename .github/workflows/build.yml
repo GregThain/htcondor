@@ -174,5 +174,5 @@ jobs:
                  line += f"{results[platform][test]} |"
                else:
                  line += " - |"
-                 with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-                   f.write(line + "\n")
+             with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+               f.write(line + "\n")
