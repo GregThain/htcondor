@@ -249,8 +249,8 @@ else(NOT WINDOWS)
                         OUTPUT_STRIP_TRAILING_WHITESPACE)
 
         # Convert the process output into a list
-        string(REGEX REPLACE ";" "\\\\;" _PYTHON_VALUES ${_PYTHON_VALUES})
-        string(REGEX REPLACE "\n" ";" _PYTHON_VALUES ${_PYTHON_VALUES})
+        string(REGEX REPLACE ";" "\\\\;" _PYTHON_VALUES "${_PYTHON_VALUES}")
+        string(REGEX REPLACE "\n" ";" _PYTHON_VALUES "${_PYTHON_VALUES}")
         list(GET _PYTHON_VALUES 0 _PYTHON_VERSION_LIST)
         list(GET _PYTHON_VALUES 1 PYTHON_PREFIX)
         list(GET _PYTHON_VALUES 2 PYTHON_INCLUDE_DIR)
