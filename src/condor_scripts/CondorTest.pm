@@ -25,7 +25,7 @@ use warnings;
 use Carp;
 use POSIX;
 use POSIX qw/strftime/;
-use Sys::Hostname;
+use Net::Domain qw(hostfqdn);
 use Cwd;
 use Time::Local;
 use File::Basename;
@@ -1524,7 +1524,7 @@ sub ParseMachineAds
 	my $value;
 
 	my @ads = ();
-	my $res = runCondorTool("condor_status -l",\@ads,2,{emit_output=>0});
+	my $res = runCondorTool("condor_status -l $machine",\@ads,2,{emit_output=>0});
     
     TestDebug( "reading machine ads from $machine...\n" ,5);
     #while( <PULL> )
@@ -2159,7 +2159,16 @@ sub spawn_cmd
 ##############################################################################
 
 sub getFqdnHost {
-    my $host = hostname();
+    my $host = hostfqdn();
+    CondorUtils::fullchomp($host);
+    # hostfqdn returns "hostname.." if there is no domainname
+    # so we will strip off the trailing dots
+    if ($host =~ /\.$/) {
+      chop($host);
+    }
+    if ($host =~ /\.$/) {
+      chop($host);
+    }
     return($host);
 }
 

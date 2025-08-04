@@ -314,7 +314,7 @@ elseif ( ${OS_NAME} MATCHES "^WIN" )
 			set (MSVCVERNUM 14.3)
 		endif()
 	else()
-		message(FATAL_ERROR "unsupported compiler version: ${MSVC_VERSION}")
+		message(FATAL_ERROR "unsupported compiler version")
 	endif()
 
 	# look for the all important C-runtime
