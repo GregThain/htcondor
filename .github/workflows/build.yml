@@ -148,7 +148,7 @@ jobs:
                test_xml = dir / 'test.xml'
                for elem in ET.parse(test_xml).getroot().findall("testcase"):
                  testname = elem.get("name")
-                 teststatus = elem.get("status")
+                 teststatus = ":green_circle:" if elem.get("status") == "run" else ":red_circle:"
                  results[dir][testname] = teststatus
 
              header = "| test |"
