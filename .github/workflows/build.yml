@@ -164,6 +164,10 @@ jobs:
                header += f"{platform}|"
                separator += "---|"
 
+             with open(env["GITHUB_STEP_SUMMARY"], "a") as f:
+               f.write(header + "\n")
+               f.write(separator + "\n")
+
              alltests = set()
              for platform in results.values():
                for name in platform:
@@ -176,4 +180,5 @@ jobs:
                  line += f"{results[platform][test]} |"
                else:
                  line += " - |"
-                 print(line)
+                 with open(env["GITHUB_STEP_SUMMARY"], "a") as f:
+                   f.write(line + "\n")
