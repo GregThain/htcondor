@@ -107,8 +107,8 @@ jobs:
       - name: Build
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
-      #- name: Test
-      #  run: (cd __build && ctest -j 20 )
+      - name: Test
+        run: (cd __build && ctest -j 20 )
 
   winbuild:
     runs-on: windows-latest
