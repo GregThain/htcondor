@@ -151,11 +151,10 @@ jobs:
 
              for dir in Path(".").iterdir():
                test_xml = dir / 'test.xml'
-             if test_xml.exists():
-             for elem in ET.parse(test_xml).getroot().findall("testcase"):
-               testname = elem.get("name")
-               teststatus = elem.get("status")
-               results[dir][testname] = teststatus
+               for elem in ET.parse(test_xml).getroot().findall("testcase"):
+                 testname = elem.get("name")
+                 teststatus = elem.get("status")
+                 results[dir][testname] = teststatus
 
              header = "| test |"
              separator = "|---|"
