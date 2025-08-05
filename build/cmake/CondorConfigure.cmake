@@ -232,7 +232,7 @@ else(NOT WINDOWS)
         set(PYTHON_QUERY_PART_03 "import struct;")
         set(PYTHON_QUERY_PART_04 "print('.'.join(str(v) for v in sys.version_info));")
         set(PYTHON_QUERY_PART_05 "print(sys.prefix);")
-		set(PYTHON_QUERY_PART_06 "print(s.get_path('platinclude'));")
+        set(PYTHON_QUERY_PART_06 "print(s.get_path('platinclude'));")
         set(PYTHON_QUERY_PART_07 "print(s.get_path('platlib'));")
         set(PYTHON_QUERY_PART_08 "print(s.get_config_var('EXT_SUFFIX'));")
         set(PYTHON_QUERY_PART_09 "print(hasattr(sys, 'gettotalrefcount')+0);")
@@ -248,8 +248,6 @@ else(NOT WINDOWS)
                         ERROR_VARIABLE _PYTHON_ERROR_VALUE
                         OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-		message(STATUS "GGT GGT GGT Python Values is ${_PYTHON_VALUES}")
-		message(STATUS "GGT GGT GGT Python error is ${_PYTHON_ERROR_VALUE}")
         # Convert the process output into a list
         string(REGEX REPLACE ";" "\\\\;" _PYTHON_VALUES ${_PYTHON_VALUES})
         string(REGEX REPLACE "\n" ";" _PYTHON_VALUES ${_PYTHON_VALUES})
