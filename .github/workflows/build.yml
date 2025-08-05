@@ -102,7 +102,7 @@ jobs:
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
       - name: Test
-        run: (cd __build && ctest -VV -j 20 )
+        run: (cd __build && ctest -j 10 )
 
       - name: Upload Artifact
         if: always()
