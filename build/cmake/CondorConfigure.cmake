@@ -264,7 +264,7 @@ else(NOT WINDOWS)
         list(GET _PYTHON_VALUES 8 PYTHON_VERSION_MINOR)
 
         #check version (only 3.9+ works now)
-        if(NOT "${PYTHON_LIBRARY_SUFFIX}" MATCHES "3[91]")
+        if(NOT "${PYTHON_LIBRARY_SUFFIX}" MATCHES "3[91][0-9]*")
             message(STATUS "Wrong python 3.x library version detected.  Only 3.9 and higher is supported ${PYTHON_LIBRARY_SUFFIX} detected")
         else()
             # Test for 32bit python by making sure that Python has the same pointer-size as the chosen compiler
