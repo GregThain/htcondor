@@ -248,6 +248,8 @@ else(NOT WINDOWS)
                         ERROR_VARIABLE _PYTHON_ERROR_VALUE
                         OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+		message(STATUS "GGT GGT GGT Python Values is ${_PYTHON_VALUES}")
+		message(STATUS "GGT GGT GGT Python error is ${_PYTHON_ERROR_VALUE}")
         # Convert the process output into a list
         string(REGEX REPLACE ";" "\\\\;" _PYTHON_VALUES "${_PYTHON_VALUES}")
         string(REGEX REPLACE "\n" ";" _PYTHON_VALUES "${_PYTHON_VALUES}")
