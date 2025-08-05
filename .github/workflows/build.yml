@@ -119,6 +119,10 @@ jobs:
         with:
           distribution: strawberry
 
+      - name: Install/Upgrade setuptools and other build tools
+        shell: cmd 
+        run: py -m pip install --upgrade pip setuptools wheel
+
       - name: cmake configuration
         run: (cmake -G "Visual Studio 17 2022" -DWITH_KRB5:bool=false .)
 
