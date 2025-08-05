@@ -101,9 +101,17 @@ jobs:
       - name: Build
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
-      # Still too slow to debu
-      #- name: Test
-      #  run: (cd __build && ctest -j 20 )
+      - name: Test
+        run: (cd __build && ctest -VV -j 20 )
+
+      - name: Upload Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macbuild
+          path: __build/
+          retention-days: 1
+          overwrite: true
 
   winbuild:
     runs-on: windows-latest
