@@ -82,10 +82,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Homebrew
-        run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          eval "$(/opt/homebrew/bin/brew shellenv)"
+      #- name: Setup Homebrew
+      #  run: |
+      #    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      #    eval "$(/opt/homebrew/bin/brew shellenv)"
 
       #- name: Install dependencies
       #  run: brew install perl
