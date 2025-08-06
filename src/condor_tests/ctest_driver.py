@@ -164,7 +164,7 @@ def main():
         except FileExistsError:
             pass
 
-    os.environ["PATH"] = os.pathsep.join(
+    os.environ["PATH"] += os.pathsep + os.pathsep.join(
         [
             os.path.join(args.prefix_path, "bin"),
             os.path.join(args.prefix_path, "sbin"),
