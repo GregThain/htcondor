@@ -499,7 +499,6 @@ Requires: python2-cryptography
 Requires: python2-scitokens
 %else
 Requires: python3-condor = %{version}-%{release}
-Requires: python3-six
 Requires: python3-cryptography
 Requires: python3-scitokens
 %endif
@@ -539,7 +538,6 @@ Summary: Vault credmon for HTCondor
 Group: Applications/System
 Requires: %name = %version-%release
 Requires: python3-condor = %{version}-%{release}
-Requires: python3-six
 %if 0%{?rhel} == 7 && ! 0%{?amzn}
 Requires: python36-cryptography
 Requires: python36-urllib3
@@ -1535,6 +1533,9 @@ fi
 /bin/systemctl try-restart condor.service >/dev/null 2>&1 || :
 
 %changelog
+* Tue Aug 12 2025 Tim Theisen <tim@cs.wisc.edu> - 24.10.2-1
+- Fix condor_store_cred bug that broke installing with get_htcondor
+
 * Mon Jul 28 2025 Tim Theisen <tim@cs.wisc.edu> - 24.10.2-1
 - Remove support for old JobRouter syntax
 - New condor_dag_checker tool finds syntax and logic errors before run

@@ -1391,6 +1391,37 @@ Scheduler::sumAllSubmitterData(SubmitterData &all) {
 	}
 }
 
+struct FlockUpdateDetails {
+	FlockUpdateDetails(size_t m, int l, SubmitterData* sd) : maxLevel(m), level(l), subData(sd) {}
+
+	size_t maxLevel{0};
+	int level{0};
+	SubmitterData* subData{nullptr}; // WARNING: WE DO NOT OWN THIS DATA! DO NOT DELELTE!!!
+};
+
+static void
+flockCommunicationCheck(bool success, Sock* /*sock*/, CondorError* /*errstack*/, const std::string& /*trust_domain*/, bool /*should_try_token_request*/, void* misc_data) {
+	std::unique_ptr<FlockUpdateDetails> details((FlockUpdateDetails*)misc_data);
+
+	if ( ! success) {
+		if (details && details->subData) {
+			SubmitterData* sd = details->subData;
+			// Check if failure at current flock level and flock level can be increased
+			if (details->level == sd->OldFlockLevel &&
+			    sd->OldFlockLevel == sd->FlockLevel &&
+			    (size_t)(details->level) < details->maxLevel)
+			{
+				// Increase flock level
+				sd->FlockLevel++;
+				dprintf(D_ALWAYS, "Increasing flock level for %s from %d to %d\n",
+				        sd->Name(), details->level, sd->FlockLevel);
+			}
+		} else {
+			dprintf(D_ERROR, "Unable to process flock collector sendUpdate failure.\n");
+		}
+	}
+}
+
 void
 Scheduler::updateSubmitterAd(SubmitterData &SubDat, ClassAd &pAd, DCCollector *col, int flock_level, time_t time_now) {
 		const char * owner_name = SubDat.Name();
@@ -1422,7 +1453,9 @@ Scheduler::updateSubmitterAd(SubmitterData &SubDat, ClassAd &pAd, DCCollector *c
 		int num_updates = 0;
 		if (col) {
 			DCCollectorAdSequences & adSeq = daemonCore->getUpdateAdSeq();
-			num_updates = col->sendUpdate( UPDATE_SUBMITTOR_AD, &pAd, adSeq, NULL, true );
+			// NOTE: This is cleaned up in callback function (if allocated)
+			FlockUpdateDetails* details = new FlockUpdateDetails(FlockCollectors.size(), flock_level, &SubDat);
+			num_updates = col->sendUpdate(UPDATE_SUBMITTOR_AD, &pAd, adSeq, nullptr, true, flockCommunicationCheck, details);
 		} else {
 			num_updates = daemonCore->sendUpdates(UPDATE_SUBMITTOR_AD, &pAd, NULL, true);
 			SubDat.lastUpdateTime = time_now;
@@ -1960,9 +1993,7 @@ Scheduler::count_jobs()
 
 	pAd.Delete(ATTR_SUBMITTER_TAG);
 
-	for (SubmitterDataMap::iterator it = Submitters.begin(); it != Submitters.end(); ++it) {
-		it->second.OldFlockLevel = it->second.FlockLevel;
-	}
+	for (auto& [_, sd] : Submitters) { sd.OldFlockLevel = sd.FlockLevel; }
 
 	 // Tell our GridUniverseLogic class what we've seen in terms
 	 // of Globus Jobs per owner.
@@ -4870,7 +4901,7 @@ abort_job_myself( PROC_ID job_id, JobAction action, bool log_hold )
 	// job to run on it.
 	match_rec *mrec = scheduler.FindMrecByJobID(job_id);
 	bool is_ocu_holder = false;
-	GetAttributeBool(job_id.cluster, job_id.proc, "IsOCUHolder", &is_ocu_holder);
+	GetAttributeBool(job_id.cluster, job_id.proc, ATTR_OCU_HOLDER, &is_ocu_holder);
 	if (mrec && is_ocu_holder) {
 		// ocu holders are set with infinite keep claim idle, but if we are deleting
 		// the job, that's the only time we want to remove the claim.
@@ -9240,7 +9271,7 @@ Scheduler::claimedStartd( DCMsgCallback *cb ) {
 		// try and start a job on each of the new slots
 		for (match_rec* slot : slots) {
 			bool is_ocu_holder = false;
-			GetAttributeBool(slot->cluster,slot->proc,"IsOCUHolder", &is_ocu_holder);
+			GetAttributeBool(slot->cluster,slot->proc,ATTR_OCU_HOLDER, &is_ocu_holder);
 			if (is_ocu_holder) {
 				// If the "job" is the one which is responsible for holding the OCU 
 				// claim, don't start the job, but set cluster/proc to -1 to indicate
@@ -9679,7 +9710,7 @@ Scheduler::StartJob(match_rec *rec)
 	ASSERT( rec );
 
 	bool is_ocu_holder = false;
-	GetAttributeBool(rec->cluster,rec->proc,"IsOCUHolder", &is_ocu_holder);
+	GetAttributeBool(rec->cluster,rec->proc, ATTR_OCU_HOLDER, &is_ocu_holder);
 	if (is_ocu_holder) {
 		return;
 	}
@@ -14107,9 +14138,15 @@ Scheduler::Init()
 
 	if( flock_collector_hosts ) {
 		FlockCollectors.clear();
-		for (const auto& name : StringTokenIterator(flock_collector_hosts)) {
+
+		// Reserve the total number of flock collectors to prevent
+		// Copy constructor being called on DCCollector Objects for now
+		auto collector_names = split(flock_collector_hosts);
+		FlockCollectors.reserve(collector_names.size());
+		for (const auto& name : collector_names) {
 			FlockCollectors.emplace_back(name.c_str());
 		}
+
 		MaxFlockLevel = FlockCollectors.size();
 		MinFlockLevel = param_integer("MIN_FLOCK_LEVEL", 0, 0, MaxFlockLevel);
 

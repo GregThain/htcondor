@@ -1787,7 +1787,7 @@ bool JobQueueJob::IsNoopJob()
 bool JobQueueJob::IsOCUClaimer() const
 {
 	bool ocu = false;
-	this->LookupBool("IsOCUHolder", ocu);
+	this->LookupBool(ATTR_OCU_HOLDER, ocu);
 	return ocu;
 }
 
@@ -2168,7 +2168,6 @@ InitJobQueue(const char *job_queue_name,int max_historical_logs)
 	/* We read/initialize the header ad in the job queue here.  Currently,
 	   this header ad just stores the next available cluster number. */
 	JobQueueBase *bad = nullptr;
-	JobQueueCluster *clusterad = nullptr;
 	JobQueueKey key;
 	std::vector<unsigned int> jobset_ids;
 	std::unordered_map<std::string, unsigned int> needed_sets;
@@ -2294,9 +2293,9 @@ InitJobQueue(const char *job_queue_name,int max_historical_logs)
 			}
 			if (scheduler.HasPersistentProjectInfo() && ! cad->project) {
 				std::string project_name;
-				clusterad->LookupString(ATTR_PROJECT_NAME, project_name);
+				cad->LookupString(ATTR_PROJECT_NAME, project_name);
 				if ( ! project_name.empty()) {
-					clusterad->project = scheduler.insert_projectinfo(project_name.c_str());
+					cad->project = scheduler.insert_projectinfo(project_name.c_str());
 				}
 			}
 			continue;  // done with this cluster ad for the first pass
@@ -2326,7 +2325,7 @@ InitJobQueue(const char *job_queue_name,int max_historical_logs)
 			ad->Delete(ATTR_AUTO_CLUSTER_ID);
 
 			// link all proc ads to their cluster ad, if there is one
-			clusterad = GetClusterAd(cluster_num);
+			JobQueueCluster* clusterad = GetClusterAd(cluster_num);
 			if (clusterad) {
 				if ( ! clusterad->ownerinfo) {
 					InitClusterAd(clusterad, owner, jobset_ids, needed_sets);
@@ -8946,7 +8945,7 @@ static JobRunnableState mapRunnableReasonCode(runnable_reason_code code)
 		JobRunnableState::Cooldown,    //InShortCooldown,
 		JobRunnableState::Matched,     //AlreadyMatched,
 	};
-	ASSERT((size_t)code >= 0 && (size_t)code < COUNTOF(aState));
+	ASSERT((size_t)code < COUNTOF(aState));
 	return aState[(size_t)code];
 }
 
@@ -9646,6 +9645,25 @@ void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad,
 				p->not_runnable = true;
 			}
 
+			if (ocu) {
+				if (match_any_user) {
+					// Our OCU claim
+					bool OCUWanted = false;
+					job->LookupBool("OCUWanted", OCUWanted);
+					if ( ! OCUWanted) {
+						continue;
+					}
+				} else {
+					// Someone else's OCU claim
+					// only allow a job that is willing
+					bool OCUWilling = false;
+					job->LookupBool("OCUWilling", OCUWilling);
+					if ( ! OCUWilling) {
+						continue;
+					}
+				}
+			}
+
 			if (runnable_code != runnable_reason_code::IsRunnable) {
 					// This job's status must have changed since the
 					// time it was added to the runnable job list.
@@ -9761,7 +9779,7 @@ void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad,
 		}	// end of for loop through PrioRec array
 
 		// If we got here and ocu true and match_any_user is false, then
-		// no job from our priority use matched.  Try again for someone else.
+		// no job from our priority user matched.  Try again for someone else.
 		if (ocu && !match_any_user) {
 			match_any_user = true;
 			continue;
@@ -9857,7 +9875,7 @@ const char * getRunnableReason(runnable_reason_code code)
 		"not runnable (in cool-down < 5min)", //InShortCooldown,
 		"not runnable (already matched)", //AlreadyMatched,
 	};
-	ASSERT((size_t)code >= 0 && (size_t)code < COUNTOF(aReason));
+	ASSERT((size_t)code < COUNTOF(aReason));
 	return aReason[(size_t)code];
 }
 
