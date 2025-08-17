@@ -36,7 +36,7 @@ jobs:
         - my_docker_volume:/volume_mount
       options: --cpus 4 --hostname build-${{ matrix.instance.abbrev }}.chtc.wisc.edu
     steps:
-      - name: Make Platform Name
+      - name: Create Platform Name
         id: platform_name
         run: echo "platform_name=$(echo ${{ matrix.instance.container }} | sed -e 's/htcondor\/nmi-build://g' -e 's/-[0-9]*$//g')" >> $GITHUB_OUTPUT
 
@@ -101,8 +101,8 @@ jobs:
       - name: Build
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
-      #- name: Test
-      #  run: (cd __build && ctest -j 10 )
+      - name: Test
+        run: (cd __build && ctest -j 10 -R cmd_q)
 
       #- name: Upload Artifact
       #  if: always()
