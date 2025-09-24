@@ -14,7 +14,6 @@ jobs:
         {"img": "ubuntu-latest", "abbrev": "x86-AL9", "container": "htcondor/nmi-build:x86_64_AlmaLinux9-24110202"},
         {"img": "ubuntu-latest", "abbrev": "x86-AL10", "container": "htcondor/nmi-build:x86_64_AlmaLinux10-24110202"},
         {"img": "ubuntu-latest", "abbrev": "x86-Azn23", "container": "htcondor/nmi-build:x86_64_AmazonLinux2023-24110202"},
-        {"img": "ubuntu-latest", "abbrev": "x86-D11", "container": "htcondor/nmi-build:x86_64_Debian11-24110202"},
         {"img": "ubuntu-latest", "abbrev": "x86-D12", "container": "htcondor/nmi-build:x86_64_Debian12-24110202"},
         {"img": "ubuntu-latest", "abbrev": "x86-OS15", "container": "htcondor/nmi-build:x86_64_openSUSE15-24110202"},
         {"img": "ubuntu-latest", "abbrev": "x86-U22", "container": "htcondor/nmi-build:x86_64_Ubuntu22-24110202"},
