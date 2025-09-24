@@ -727,8 +727,6 @@ Scheduler::Scheduler() :
 	leaseAliveInterval = 500000;	// init to a nice big number
 	aliveid = -1;
 	ExitWhenDone = FALSE;
-	matches = NULL;
-	matchesByJobID = NULL;
 
 	numMatches = 0;
 	numShadows = 0;
@@ -789,7 +787,6 @@ Scheduler::Scheduler() :
 	From.sin_addr.s_addr = 0;
 
 	m_use_startd_for_local = false;
-	cronTabs = 0;
 	MaxExceptions = 0;
 	m_job_machine_attrs_history_length = 0;
 
@@ -838,17 +835,8 @@ Scheduler::~Scheduler()
 
 	if (CondorAdministrator)
 		free(CondorAdministrator);
-	if (matches) {
-		matches->startIterations();
-		match_rec *rec;
-		std::string id;
-		while (matches->iterate(id, rec) == 1) {
-			delete rec;
-		}
-		delete matches;
-	}
-	if (matchesByJobID) {
-		delete matchesByJobID;
+	for (const auto& [id, rec]: matches) {
+		delete rec;
 	}
 	for (const auto &[pid, rec]: shadowsByPid) {
 		delete rec;
@@ -877,13 +865,8 @@ Scheduler::~Scheduler()
 		//
 		// Delete CronTab objects
 		//
-	if ( this->cronTabs ) {
-		this->cronTabs->startIterations();
-		CronTab *current;
-		while ( this->cronTabs->iterate( current ) >= 1 ) {
-			if ( current ) delete current;
-		}
-		delete this->cronTabs;
+	for (const auto& [id, current] : cronTabs) {
+		delete current;
 	}
 
 	delete slotWeightOfJob;
@@ -1159,9 +1142,11 @@ void
 Scheduler::check_claim_request_timeouts()
 {
 	if(RequestClaimTimeout > 0) {
-		matches->startIterations();
-		match_rec *rec;
-		while(matches->iterate(rec) == 1) {
+		// DelMrec() will erase the matches entry, so be careful here...
+		auto it = matches.begin();
+		while (it != matches.end()) {
+			match_rec* rec = it->second;
+			it++;
 			if(rec->status == M_STARTD_CONTACT_LIMBO) {
 				time_t time_left = rec->entered_current_status + \
 				                 RequestClaimTimeout - time(NULL);
@@ -1567,9 +1552,7 @@ Scheduler::count_jobs()
 	std::map<std::string, std::vector<PROC_ID>> jobs_on_borrowed_claims;	
 
 		// set JobsRunning/JobsFlocked for owners
-	matches->startIterations();
-	match_rec *rec;
-	while(matches->iterate(rec) == 1) {
+	for (const auto& [id, rec]: matches) {
 		SubmitterData * SubDat;
 		if (user_is_the_new_owner) {
 			SubDat = insert_submitter(rec->user);
@@ -1640,7 +1623,21 @@ Scheduler::count_jobs()
 				for (const auto &jid : jobs_on_borrowed_claims[name]) {
 					dprintf(D_FULLDEBUG, "Evicting job %d.%d running on OCU claim borrowed from %s\n",
 						jid.cluster, jid.proc, name.c_str());
-					enqueueActOnJobMyself( jid, JA_VACATE_FAST_JOBS, true );
+					match_rec *mrec = scheduler.FindMrecByJobID(jid);
+
+					// it really should be there, but just in case
+					if (mrec) {
+						ClassAd *my_match_ad = mrec->my_match_ad;
+
+						// Increment counter of per-match OCU evictions
+						if (my_match_ad) {
+							int OCUEvictions = 0;
+							my_match_ad->LookupInteger("OCUEvictions", OCUEvictions);
+							OCUEvictions++;
+							my_match_ad->Assign("OCUEvictions", OCUEvictions);
+						}
+						enqueueActOnJobMyself( jid, JA_VACATE_FAST_JOBS, true );
+					}
 				}
 			}
 		}
@@ -1774,6 +1771,8 @@ Scheduler::count_jobs()
 
 	cad->Assign(ATTR_NUM_JOB_STARTS_DELAYED, RunnableJobQueue.size());
 	cad->Assign(ATTR_NUM_PENDING_CLAIMS, startdContactQueue.size() + num_pending_startd_contacts);
+	cad->Assign(ATTR_NUM_PENDING_CLAIMS_IN_Q, startdContactQueue.size());
+	cad->Assign(ATTR_NUM_PENDING_CLAIMS_IN_CONTACT, num_pending_startd_contacts);
 
 	m_xfer_queue_mgr.publish(cad);
 
@@ -1971,6 +1970,8 @@ Scheduler::count_jobs()
 				auto iter = FlockExtra.find(pool);
 				if (iter == FlockExtra.end()) {
 					std::pair<std::string, std::unique_ptr<DCCollector>> value(pool, std::unique_ptr<DCCollector>(new DCCollector(pool.c_str())));
+					// TODO This code is broken with fully-qualified owner names.
+					//   This assumes SubDat.owners contains OS usernames.
 					value.second->setOwner(*SubDat.owners.begin());
 					value.second->setAuthenticationMethods({"TOKEN"});
 					auto iter2 = FlockExtra.insert(std::move(value));
@@ -2239,16 +2240,8 @@ int Scheduler::handleMachineAdsQuery(Stream * stream, ClassAd &queryAd) {
 
 	stream->encode();
 
-	// The HashTable class is /so/ broken:
-	//	* no operator !=
-	//	* post-increment operator modifies the base class
-	//	* no pre-increment operator
-	//	* i->second doesn't work, but (*i).second does
-	//  * will not work with C++11 for( auto && i : v ) {}
-	auto i = matches->begin();
 	dprintf( D_TEST, "Dumping match records (with now jobs)...\n" );
-	for( ; !(i == matches->end()); i.advance() ) {
-		match_rec * match = (*i).second;
+	for (const auto& [id, match]: matches) {
 
 		if( match->my_match_ad == NULL ) {
 			continue;
@@ -2269,7 +2262,7 @@ int Scheduler::handleMachineAdsQuery(Stream * stream, ClassAd &queryAd) {
 
 		if( match->m_now_job.isJobKey() ) {
 			dprintf( D_TEST, "Match record '%s' has now job %d.%d\n",
-				(*i).first.c_str(), match->m_now_job.cluster, match->m_now_job.proc );
+				id.c_str(), match->m_now_job.cluster, match->m_now_job.proc );
 		}
 
 		num_ads++;
@@ -2424,6 +2417,22 @@ int Scheduler::command_query_user_ads(int /*command*/, Stream* stream)
 			if (IsQueryConstraintMatch(constr, &queryAd, urec)) {
 				ClassAd ad;
 				urec->live.publish(ad,"Num");
+
+			#if 1 // speed test for Miron
+				struct _urec_test { JobQueueUserRec* ptr; int hits; } refs = {urec, 0};
+				schedd_runtime_probe runtime;
+				WalkJobQueue3(
+					[](JobQueueJob * job, const JOB_ID_KEY & /*jid*/, void * pv) -> int {
+						auto & refs = *(struct _urec_test*)pv;
+						if (refs.ptr == job->ownerinfo) { ++refs.hits; }
+						return 0;
+					},
+					&refs,
+					runtime);
+				ad.Assign("LiveHits", refs.hits);
+				runtime.Publish(ad,"Scan",IF_RT_SUM);
+			#endif
+
 				ad.ChainToAd(urec);
 				if ( !putClassAd(stream, ad, put_opts, proj)) {
 					dprintf (D_ALWAYS,  "Error sending query result to client -- aborting\n");
@@ -8907,7 +8916,8 @@ Scheduler::release_claim(int, Stream *sock)
 		dprintf (D_ALWAYS, "Failed to get ClaimId\n");
 		return;
 	}
-	if( matches->lookup(claim_id, mrec) != 0 ) {
+	auto it = matches.find(claim_id);
+	if (it == matches.end()) {
 			// We couldn't find this match in our table, perhaps it's
 			// from a dedicated resource.
 		dedicated_scheduler.DelMrec( claim_id );
@@ -8916,6 +8926,7 @@ Scheduler::release_claim(int, Stream *sock)
 			// The startd has sent us RELEASE_CLAIM because it has
 			// destroyed the claim.  There is therefore no need for us
 			// to send RELEASE_CLAIM to the startd.
+		mrec = it->second;
 		mrec->needs_release_claim = false;
 
 		DelMrec( mrec );
@@ -9687,8 +9698,11 @@ Scheduler::StartJobs( int /* timerID */ )
 	this->calculateCronTabSchedules();
 		
 	dprintf(D_FULLDEBUG, "-------- Begin starting jobs --------\n");
-	matches->startIterations();
-	while(matches->iterate(rec) == 1) {
+	// StartJob() may erase the matches entry, so be careful here...
+	auto it = matches.begin();
+	while (it != matches.end()) {
+		rec = it->second;
+		it++;
 			// If it's not in M_CLAIMED status, then it's not ready
 			// to start a job.
 		if ( rec->status == M_CLAIMED ) {
@@ -12342,6 +12356,34 @@ mark_job_running(PROC_ID* job_id)
 		SetAttributeInt(job_id->cluster, job_id->proc,
 						ATTR_NUM_JOB_STARTS, num);
 	}
+
+	match_rec *mrec = scheduler.FindMrecByJobID(*job_id);
+
+	// Update some ocu-centric statistics if using an ocu resource
+	if (mrec && mrec->is_ocu) {
+		int ocu_cluster = mrec->ocu_originator.cluster;
+		int ocu_proc = mrec->ocu_originator.proc;
+		bool ocu_wanted = false;
+		bool ocu_willing = false;
+		GetAttributeBool(job_id->cluster, job_id->proc, "OCUWanted",&ocu_wanted);
+		GetAttributeBool(job_id->cluster, job_id->proc, "OCUWilling", &ocu_willing);
+
+		std::string ocu_attr_name;
+		if (ocu_wanted) {
+			ocu_attr_name = ATTR_OCU_OWNER_ACTIVATIONS;
+		} else if (ocu_willing) {
+			ocu_attr_name = ATTR_OCU_BORROWER_ACTIVATIONS;
+		}
+		
+		if (!ocu_attr_name.empty()) {
+			int ocu_num_uses = 0;
+			GetAttributeInt(ocu_cluster, ocu_proc, ocu_attr_name.c_str(), &ocu_num_uses);
+			ocu_num_uses++;
+			SetAttributeInt(ocu_cluster, ocu_proc, ocu_attr_name.c_str(), ocu_num_uses);
+			SetAttributeInt(ocu_cluster, ocu_proc, ATTR_OCU_CLAIM_START_TIME, time(nullptr));
+		}
+	}
+
 	MarkJobClean(*job_id);
 }
 
@@ -12397,6 +12439,9 @@ _mark_job_stopped(PROC_ID* job_id)
 	// if job isn't RUNNING, then our work is already done
 	if (status == RUNNING || status == TRANSFERRING_OUTPUT || status == SUSPENDED) {
 
+
+		dprintf( D_FULLDEBUG, "Marked job %d.%d as IDLE\n", job_id->cluster,
+				 job_id->proc );
 		SetAttributeInt(job_id->cluster, job_id->proc, ATTR_JOB_STATUS, IDLE);
 		SetAttributeInt( job_id->cluster, job_id->proc,
 						 ATTR_ENTERED_CURRENT_STATUS, time(0) );
@@ -12409,8 +12454,6 @@ _mark_job_stopped(PROC_ID* job_id)
 		}
 		DeleteAttribute( job_id->cluster, job_id->proc, ATTR_REMOTE_POOL );
 
-		dprintf( D_FULLDEBUG, "Marked job %d.%d as IDLE\n", job_id->cluster,
-				 job_id->proc );
 	}	
 }
 
@@ -12869,6 +12912,32 @@ Scheduler::child_exit(int pid, int status)
 	ASSERT(srec);
 
 	if( srec->match ) {
+		// Update OCU stats, if any
+		if (srec->match->is_ocu) {
+			int ocu_cluster = srec->match->ocu_originator.cluster;
+			int ocu_proc = srec->match->ocu_originator.proc;
+			bool ocu_wanted = false;
+			bool ocu_willing = false;
+			GetAttributeBool(srec->job_id.cluster, srec->job_id.proc, "OCUWanted",&ocu_wanted);
+			GetAttributeBool(srec->job_id.cluster, srec->job_id.proc, "OCUWilling", &ocu_willing);
+
+			std::string ocu_attr_name;
+			if (ocu_wanted) {
+				ocu_attr_name = "OCUOwnerActivationTime";
+			} else if (ocu_willing) {
+				ocu_attr_name = "OCUBorrowerActivationTime";
+			}
+			time_t ocu_start_time = 0;
+			time_t now = time(nullptr);
+			GetAttributeInt(ocu_cluster, ocu_proc, ATTR_OCU_CLAIM_START_TIME, &ocu_start_time);
+			if ((now > ocu_start_time) && (ocu_start_time > 0)) {
+				time_t ocu_time = now - ocu_start_time;
+				time_t ocu_total_time = 0;
+				GetAttributeInt(ocu_cluster, ocu_proc, ocu_attr_name.c_str(), &ocu_total_time);
+				ocu_total_time += ocu_time;
+				SetAttributeInt(ocu_cluster, ocu_proc, ocu_attr_name.c_str(), ocu_total_time);
+			}
+		}
 		if (srec->exit_already_handled && (srec->match->keep_while_idle == 0)) {
 			DelMrec( srec->match );
 			srec->match = NULL;
@@ -12877,7 +12946,7 @@ Scheduler::child_exit(int pid, int status)
 			if ((srec->match->keep_while_idle > 0) && ((exitstatus == JOB_EXITED) || (exitstatus == JOB_SHOULD_REMOVE) || (exitstatus == JOB_KILLED))) {
 				srec->match->setStatus(M_CLAIMED);
 				srec->match->shadowRec = NULL;
-				srec->match->cluster = srec->match->proc = -1;
+				SetMrecJobID(srec->match, -1, -1);
 				srec->match->idle_timer_deadline = time(NULL) + srec->match->keep_while_idle;
 				srec->match = NULL;
 			}
@@ -13031,6 +13100,114 @@ Scheduler::child_exit(int pid, int status)
 	}
 }
 
+// Apply a single Eviction transform to a job and return a shadow code that indicates
+// whether the transform was successful in curing the problem that caused the eviction
+// if the input shadow_code is JOB_SHOULD_HOLD and the transform was successful, the
+// the return will be JOB_SHOULD_REQUEUE. otherwise the input shadow_code will be the return value
+//
+int TransformOnEvict(JobQueueJob * job, const char * name, const char * xform_body, int shadow_code)
+{
+	JOB_ID_KEY_BUF job_id(job->jid);
+	XFormHash mset;
+	mset.init();
+
+	MacroStreamXFormSource xfm(name);
+	std::string errmsg;
+	int rval = xfm.set_simple_transform(xform_body); // returns -1 for bad requirements and -2 for empty transform
+	if (rval < 0) {
+		if (rval == -1) {
+			dprintf(D_ERROR, "TransformOnEvict %s invalid requirements in %s\n", job_id.c_str(), name);
+		}
+		return shadow_code;
+	}
+	errmsg.clear();
+	if ( ! xfm.matches(job)) {
+		dprintf(D_STATUS, "TransformOnEvict %s does not match %s requirements\n", job_id.c_str(), name);
+		return shadow_code;
+	} else {
+		if (xfm.getRequirements()) {
+			dprintf(D_STATUS, "TransformOnEvict %s MATCHES %s requirements\n", job_id.c_str(), name);
+		}
+	}
+
+	XFormAdUndo undo;
+	int flags = XFORM_UTILS_LOG_ERRORS | XFORM_UTILS_LOG_TO_DPRINTF;
+	if (IsFulldebug(D_ALWAYS)) { flags |= XFORM_UTILS_LOG_STEPS; }
+	rval = TransformClassAd(job, xfm, mset, errmsg, flags, &undo);
+	if (rval < 0) {
+		// Transformation failed; errmsg should say why.
+		dprintf(D_ERROR, "TransformOnEvict %s error %d applying transform %s : %s\n",
+			job_id.c_str(), rval, xfm.getName(), errmsg.c_str());
+		undo.Revert(*job);
+		return shadow_code;
+	}
+
+	bool already_in_transaction = InTransaction();
+	if( !already_in_transaction ) {
+		BeginTransaction();
+	}
+
+	bool autocluster_changing = false;
+
+	// examine the transform undo.  the keys in the undo act as dirty keys
+	// we want to convert the current value for each key to a SetAttribute call
+	for (auto &[key,oldval] : undo.list) {
+		ExprTree * tree = job->Lookup(key);
+		if (tree && oldval && *SkipExprEnvelope(tree) == *SkipExprEnvelope(oldval)) continue;
+		const char * attr = key.c_str();
+		const char *rhstr = nullptr;
+
+		if (tree) {
+			rhstr = ExprTreeToString(tree);
+		} else {
+			// If an attribute is marked as dirty but Lookup() on this
+			// attribute fails, it means that attribute was deleted.
+			// We handle this by inserting into the transaction log a
+			// SetAttribute to UNDEFINED, which will work properly even if we
+			// are dealing with a chained job ad that has the attribute set differently
+			// in the cluster ad.
+			rhstr = "UNDEFINED";
+		}
+		if ( ! rhstr) {
+			dprintf(D_ALWAYS,"TransformOnEvict %s: Problem with transformed classad attribute %s aborting transform\n",
+				job_id.c_str(), attr);
+			return shadow_code;
+		}
+
+		if (SetAttribute(job_id.cluster, job_id.proc, attr, rhstr, SetAttribute_UserTransform) == -1) {
+			dprintf(D_ERROR,"(%s) job_transforms: Failed to set %s = %s\n", job_id.c_str(), attr, rhstr);
+			return -2;
+		}
+
+		if (shadow_code == JOB_SHOULD_HOLD) {
+			// The SetAttribute above will have set the autocluster_id to -1 if an attribute
+			// in the autocluster was changed, (the autocluster might have been dirty already).
+			// We further check to see if it appears to be a resource request attr, this should insure that if we
+			// go back to idle it will be with a new resource request
+			// TODO: better way of recognizing that it is safe to skip the hold?
+			if (starts_with_ignore_case(key, ATTR_REQUEST_PREFIX) && job->autocluster_id < 0) {
+				autocluster_changing = true;
+			}
+		}
+	}
+
+	// revert the direct changes to the job classad
+	// since they are now part of the transaction
+	// they will happen when the transaction is applied
+	undo.Revert(*job);
+
+	if ( ! already_in_transaction) {
+		CommitTransactionOrDieTrying();
+	}
+	// if the job was going to go on hold, but we had a successful transform
+	// and the autocluster might be changing, let the job requeue instead.
+	if (shadow_code == JOB_SHOULD_HOLD && autocluster_changing) {
+		shadow_code = JOB_SHOULD_REQUEUE;
+	}
+
+	return shadow_code;
+}
+
 /**
  * Based on the exit status code for a job, we will preform
  * an appropriate action on the job in the queue. If an exception
@@ -13055,7 +13232,8 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 		// If we are unable to get the srec, then we need to be careful
 		// down in the logic below
 	shadow_rec *srec = this->FindSrecByProcID( job_id );
-	
+	JobQueueJob * job_ad = GetJobAd( job_id );
+
 		// Get job status.  Note we only except if there is no job status AND the job
 		// is still in the queue, since we do not want to except if the job ad is gone
 		// perhaps due to condor_rm -f.
@@ -13063,7 +13241,7 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 	if (GetAttributeInt(job_id.cluster,job_id.proc,
 						ATTR_JOB_STATUS,&q_status) < 0)	
 	{
-		if ( GetJobAd(job_id.cluster,job_id.proc) ) {
+		if ( job_ad ) {
 			// job exists, but has no status.  impossible!
 			EXCEPT( "ERROR no job status for %d.%d in Scheduler::jobExitCode()!",
 				job_id.cluster, job_id.proc );
@@ -13082,10 +13260,8 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 
 	ScheddOtherStats * other_stats = NULL;
 	if (OtherPoolStats.AnyEnabled()) {
-		ClassAd * job_ad = GetJobAd( job_id.cluster, job_id.proc );
 		if (job_ad) {
 			other_stats = OtherPoolStats.Matches(*job_ad, updateTime);
-			FreeJobAd(job_ad);
 		}
 		OtherPoolStats.Tick(updateTime);
 	}
@@ -13123,6 +13299,22 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 		//
 	bool reportException = false;
 
+	// if job is *going* to go on hold, we first check to see if there is an
+	// eviction transform that might prevent the need to hold it.
+	// TODO: rework the hold/cooldown code below so that we can make the flow
+	// clearer and less hacky.
+	bool check_eviction_transforms = false;
+	bool successful_eviction_transform = false;
+	if (exit_code == JOB_SHOULD_HOLD) {
+		check_eviction_transforms = true;
+	} else if (exit_code == JOB_SHOULD_REQUEUE) {
+		int code = 0;
+		GetAttributeInt(job_id.cluster, job_id.proc, ATTR_VACATE_REASON_CODE, &code);
+		if (code > 0 && code < CONDOR_HOLD_CODE::VacateBase) {
+			check_eviction_transforms = true;
+		}
+	}
+
 		//
 		// Based on the job's exit code, we will perform different actions
 		// on the job
@@ -13145,11 +13337,36 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 			scheduler.stats.JobsRestartReconnectsBadput += job_running_time;
 			srec->reconnect_done = true;
 		}
+	} else if (check_eviction_transforms) {
+		std::string xform_names;
+		if (job_ad->EvaluateAttrString(ATTR_TRANSFORM_ON_EVICT, xform_names)) {
+			for (auto const & tag : StringTokenIterator(xform_names)) {
+				std::string xform_body;
+				if (job_ad->LookupString(ATTR_TRANSFORM_BODY_PREFIX + tag, xform_body)) {
+					dprintf(D_FULLDEBUG, "checking TransformOnEvict=%s for job %d.%d\n",
+						tag.c_str(), job_id.cluster, job_id.proc);
+
+					//std::string adbuf;
+					//dprintf(D_ZKM, "jobad : %s\n", formatAd(adbuf,*job_ad,"\t"));
+
+					int code = TransformOnEvict(job_ad, tag.c_str(), xform_body.c_str(), JOB_SHOULD_HOLD);
+					successful_eviction_transform = (code == JOB_SHOULD_REQUEUE);
+					if (successful_eviction_transform) {
+						dprintf(D_ALWAYS, "TransformOnEvict=%s applied to job %d.%d, skipping other transforms\n",
+							tag.c_str(), job_id.cluster, job_id.proc);
+						break;
+					}
+				}
+			}
+		}
 	}
+	if (successful_eviction_transform) {
+		exit_code = JOB_SHOULD_REQUEUE;
+		dprintf(D_ALWAYS, "not holding job %d.%d because of successful eviction transform\n", job_id.cluster, job_id.proc);
+	} else
 	if (exit_code == JOB_SHOULD_REQUEUE || exit_code == JOB_NOT_STARTED) {
 		long long ival = 0;
 		classad::Value val;
-		JobQueueJob * job_ad = GetJobAd( job_id.cluster, job_id.proc );
 		if (m_jobCoolDownExpr && job_ad->EvaluateExpr(m_jobCoolDownExpr, val) && val.IsNumber(ival) && ival > 0) {
 			int cnt = 0;
 			GetAttributeInt(job_id.cluster, job_id.proc, ATTR_NUM_JOB_COOL_DOWNS, &cnt);
@@ -13161,8 +13378,10 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 		}
 		else {
 			int code = 0;
+			int subcode = 0;
 			GetAttributeInt(job_id.cluster, job_id.proc, ATTR_VACATE_REASON_CODE, &code);
-			if (code > 0 && code < CONDOR_HOLD_CODE::VacateBase) {
+			GetAttributeInt(job_id.cluster, job_id.proc, ATTR_VACATE_REASON_SUBCODE, &subcode);
+			if (shouldHoldJobBasedOnCodes(code, subcode)) {
 				std::string reason;
 				int subcode = 0;
 				GetAttributeString(job_id.cluster, job_id.proc, ATTR_VACATE_REASON, reason);
@@ -13172,6 +13391,8 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 					SetAttributeInt(job_id.cluster, job_id.proc, ATTR_HOLD_REASON_SUBCODE, subcode);
 				}
 				exit_code = JOB_SHOULD_HOLD;
+				Email mailer;
+				mailer.sendHold(job_ad, reason.c_str());
 			}
 		}
 	}
@@ -13337,15 +13558,11 @@ Scheduler::jobExitCode( PROC_ID job_id, int exit_code )
 				// runtime for it. This prevents a job from going
 				// on hold, then released only to fail again
 				// because a new runtime wasn't calculated for it
-			CronTab *cronTab = NULL;
-			if ( this->cronTabs->lookup( job_id, cronTab ) >= 0 ) {
-					// Delete the cached object				
-				if ( cronTab ) {
-					delete cronTab;
-					this->cronTabs->remove(job_id);
-					this->cronTabs->insert(job_id, nullptr);
-				}
-			} // CronTab
+			auto cron_it = cronTabs.find(job_id);
+			if (cron_it != cronTabs.end()) {
+				delete cron_it->second;
+				cron_it->second = nullptr;
+			}
 
 			if (JOB_MISSED_DEFERRAL_TIME == exit_code) {
 				stats.JobsMissedDeferralTime += 1;
@@ -13743,8 +13960,7 @@ Scheduler::check_zombie(int pid, PROC_ID* job_id)
 		// next execution time calculated for it
 		// 11.01.2005 - Andy - pavlo@cs.wisc.edu 
 		//
-	CronTab *cronTab = NULL;
-	if ( this->cronTabs->lookup( *job_id, cronTab ) >= 0 ) {
+	if ( cronTabs.find(*job_id) != cronTabs.end()) {
 			//
 			// Set the force flag to true so it will always 
 			// calculate the next execution time
@@ -14099,6 +14315,9 @@ Scheduler::Init()
 	tmp = param("SYSTEM_ON_VACATE_COOL_DOWN");
 	if (tmp) {
 		ParseClassAdRvalExpr(tmp, m_jobCoolDownExpr);
+		if( m_jobCoolDownExpr == nullptr ) {
+		    dprintf( D_ALWAYS, "Failed to parse SYSTEM_ON_VACATE_COOL_DOWN expression, ignoring it.\n" );
+		}
 		free(tmp);
 	}
 
@@ -14124,12 +14343,6 @@ Scheduler::Init()
 
 	if (m_use_startd_for_local) {
 		launch_local_startd();
-	}
-
-	if (matches == NULL) {
-		matches = new HashTable <std::string, match_rec *> (hashFunction);
-		matchesByJobID =
-			new HashTable<PROC_ID, match_rec *>(hashFuncPROC_ID);
 	}
 
 	char *flock_collector_hosts, *flock_negotiator_hosts;
@@ -14258,39 +14471,22 @@ Scheduler::Init()
 		//
 		// CronTab Table
 		// We keep a list of proc_id's for jobs that define a cron
-		// schedule for exection. We first get the pointer to the 
-		// original table, and then instantiate a new one
-		//
-	HashTable<PROC_ID, CronTab*> *origCronTabs = this->cronTabs;
-	this->cronTabs = new HashTable<PROC_ID, CronTab*>(
-												hashFuncPROC_ID );
-		//
-		// Now if there was a table from before, we will want
-		// to copy all the proc_id's into our new table. We don't
+		// schedule for exection. On a reconfig, we don't
 		// keep the CronTab objects because they'll get reinstantiated
-		// later on when the Schedd tries to calculate the next runtime
-		// We have a little safety check to make sure that the the job 
-		// actually exists before adding it back in
+		// later on when the Schedd tries to calculate the next runtime.
+		// If a job doesn't exist, remove its entry.
 		//
-		// Note: There could be a problem if MaxJobsRunning is substaintially
-		// less than what it was from before on a reconfig, and in which case
-		// the new cronTabs hashtable might not be big enough to store all
-		// the old jobs. This unlikely for now because I doubt anybody will
-		// be submitting that many CronTab jobs, but it is still possible.
-		// See the comments about about automatically resizing HashTable's
-		//
-	if ( origCronTabs != NULL ) {
-		CronTab *cronTab;
-		PROC_ID id;
-		origCronTabs->startIterations();
-		while ( origCronTabs->iterate( id, cronTab ) == 1 ) {
-			if ( cronTab ) delete cronTab;
-			ClassAd *cronTabAd = GetJobAd( id.cluster, id.proc );
-			if ( cronTabAd ) {
-				this->cronTabs->insert( id, NULL );
-			}
-		} // WHILE
-		delete origCronTabs;
+	auto cron_it = cronTabs.begin();
+	while (cron_it != cronTabs.end()) {
+		auto prev_it = cron_it++;
+		delete prev_it->second;
+		if (GetJobAd(prev_it->first) != nullptr) {
+			// Job still exists: keep entry, but clear value
+			prev_it->second = nullptr;
+		} else {
+			// Job no longer exists: remove entry
+			cronTabs.erase(prev_it);
+		}
 	}
 
 	MaxExceptions = param_integer("MAX_SHADOW_EXCEPTIONS", 2);
@@ -15301,7 +15497,9 @@ Scheduler::AddMrec(
 	} 
 	// spit out a warning and return NULL if we already have this mrec
 	match_rec *tempRec;
-	if( matches->lookup( id, tempRec ) == 0 ) {
+	auto it = matches.find(id);
+	if (it != matches.end()) {
+		tempRec = it->second;
 		char const *pubid = tempRec->claim_id.publicClaimId();
 		dprintf( D_ALWAYS,
 				 "attempt to add pre-existing match \"%s\" ignored\n",
@@ -15319,7 +15517,8 @@ Scheduler::AddMrec(
 		EXCEPT("Out of memory!");
 	} 
 
-	if( matches->insert( id, rec ) != 0 ) {
+	auto [it2, success] = matches.emplace(id, rec);
+	if (!success) {
 		dprintf( D_ALWAYS, "match \"%s\" insert failed\n", rec->claim_id.publicClaimId());
 		delete rec;
 		return nullptr;
@@ -15329,7 +15528,8 @@ Scheduler::AddMrec(
 	JobQueueJob *job_ad = nullptr;
 	JobQueueCluster * cluster_ad = nullptr;
 	if (JobQueueBase::IsJobId(jid)) {
-		ASSERT( matchesByJobID->insert( jid, rec ) == 0 );
+		auto [it, success] = matchesByJobID.emplace(jid, rec);
+		ASSERT(success);
 		job_ad = GetJobAd(jid);
 		if (job_ad) cluster_ad = job_ad->Cluster();
 	} else if (JobQueueBase::IsClusterId(jid)) {
@@ -15396,20 +15596,19 @@ Scheduler::AddMrec(
 int
 Scheduler::DelMrec(char const* id)
 {
-	match_rec *rec;
-
 	if(!id)
 	{
 		dprintf(D_ALWAYS, "Null parameter --- match not deleted\n");
 		return -1;
 	}
 
-	if( matches->lookup(id, rec) != 0 ) {
+	auto it = matches.find(id);
+	if( it == matches.end() ) {
 			// Couldn't find it, return failure
 		return -1;
 	}
 
-	return DelMrec( rec );
+	return DelMrec(it->second);
 }
 
 
@@ -15457,9 +15656,9 @@ Scheduler::unlinkMrec(match_rec* match)
 		dirtyJobQueue();
 	}
 
-	matches->remove(match->claim_id.claimId());
+	matches.erase(match->claim_id.claimId());
 
-	matchesByJobID->remove(jobId);
+	matchesByJobID.erase(jobId);
 
 		// fill any authorization hole we made for this match
 	if (match->auth_hole_id != NULL) {
@@ -15495,26 +15694,31 @@ shadow_rec*
 Scheduler::FindSrecByProcID(PROC_ID proc)
 {
 	auto it = shadowsByProcID.find(proc);
-	if (it == shadowsByProcID.end()) {
+	if (it != shadowsByProcID.end()) {
+		return it->second;
+	} else {
 		return nullptr;
 	}
-	return it->second;
 }
 
 match_rec *
 Scheduler::FindMrecByJobID(PROC_ID job_id) {
-	match_rec *match = NULL;
-	if( matchesByJobID->lookup( job_id, match ) < 0) {
-		return NULL;
+	auto it = matchesByJobID.find(job_id);
+	if (it != matchesByJobID.end()) {
+		return it->second;
+	} else {
+		return nullptr;
 	}
-	return match;
 }
 
 match_rec *
 Scheduler::FindMrecByClaimID(char const *claim_id) {
-	match_rec *rec = NULL;
-	(void) matches->lookup(claim_id, rec);
-	return rec;
+	auto it = matches.find(claim_id);
+	if (it == matches.end()) {
+		return nullptr;
+	} else {
+		return it->second;
+	}
 }
 
 void
@@ -15527,12 +15731,13 @@ Scheduler::SetMrecJobID(match_rec *match, PROC_ID job_id) {
 		return; // no change
 	}
 
-	matchesByJobID->remove(old_job_id);
+	matchesByJobID.erase(old_job_id);
 
 	match->cluster = job_id.cluster;
 	match->proc = job_id.proc;
 	if( match->proc != -1 ) {
-		ASSERT( matchesByJobID->insert(job_id, match) == 0 );
+		auto [it, success] = matchesByJobID.emplace(job_id, match);
+		ASSERT(success);
 	}
 }
 
@@ -15858,7 +16063,6 @@ Scheduler::handle_collector_token_request(int, Stream *stream)
 void
 Scheduler::sendAlives( int /* timerID */ )
 {
-	match_rec	*mrec;
 	int		  	numsent=0;
 	bool starter_handles_alives = param_boolean("STARTER_HANDLES_ALIVES",true);
 
@@ -15888,8 +16092,7 @@ Scheduler::sendAlives( int /* timerID */ )
 
 	time_t now = time(nullptr);
 	BeginTransaction();
-	matches->startIterations();
-	while (matches->iterate(mrec) == 1) {
+	for (const auto& [id, mrec]: matches) {
 		if( mrec->status == M_ACTIVE ) {
 			time_t renew_time = 0;
 			if ( starter_handles_alives && 
@@ -15920,8 +16123,11 @@ Scheduler::sendAlives( int /* timerID */ )
 	}
 	CommitNonDurableTransactionOrDieTrying();
 
-	matches->startIterations();
-	while (matches->iterate(mrec) == 1) {
+	// DelMrec() will erase the matches entry, so be careful here...
+	auto it = matches.begin();
+	while (it != matches.end()) {
+		match_rec* mrec = it->second;
+		it++;
 		if( mrec->m_startd_sends_alives == false &&
 			( mrec->status == M_ACTIVE || mrec->status == M_CLAIMED ) ) {
 
@@ -17101,12 +17307,10 @@ Scheduler::jobIsFinishedHandler( ServiceData* data )
 	PROC_ID id;
 	id.cluster = cluster;
 	id.proc    = proc;
-	CronTab *cronTab;
-	if ( this->cronTabs->lookup( id, cronTab ) >= 0 ) {
-		if ( cronTab != NULL) {
-			delete cronTab;
-			this->cronTabs->remove(id);
-		}
+	auto it = cronTabs.find(id);
+	if (it != cronTabs.end()) {
+		delete it->second;
+		cronTabs.erase(it);
 	}
 
 	// This gets called on jobs with LeaveJobInQueue set, which we don't want.
@@ -17382,11 +17586,9 @@ void
 Scheduler::addCronTabClassAd( JobQueueJob *jobAd )
 {
 	if ( NULL == m_adSchedd ) return;
-	CronTab *cronTab = NULL;
 	PROC_ID id = jobAd->jid;
-	if ( this->cronTabs->lookup( id, cronTab ) < 0 &&
-		 CronTab::needsCronTab( jobAd ) ) {
-		this->cronTabs->insert( id, NULL );
+	if (cronTabs.find(id) == cronTabs.end() && CronTab::needsCronTab(jobAd)) {
+		cronTabs.emplace(id, nullptr);
 	}
 }
 
@@ -17419,7 +17621,6 @@ Scheduler::addCronTabClusterId( int cluster_id )
 void 
 Scheduler::processCronTabClusterIds( )
 {
-	CronTab *cronTab = NULL;
 		//
 		// Loop through all the cluster_ids that we have stored
 		// For each cluster, we will inspect the job ads of all its
@@ -17430,8 +17631,8 @@ Scheduler::processCronTabClusterIds( )
 		if ( ! cad) continue;
 
 		for (JobQueueJob * job = cad->FirstJob(); job != nullptr; job = cad->NextJob(job)) {
-			if (this->cronTabs->lookup(job->jid, cronTab) < 0 && CronTab::needsCronTab(job)) {
-				this->cronTabs->insert(job->jid, nullptr);
+			if (cronTabs.find(job->jid) == cronTabs.end() && CronTab::needsCronTab(job)) {
+				cronTabs.emplace(job->jid, nullptr);
 			}
 		}
 	} // WHILE
@@ -17447,11 +17648,8 @@ Scheduler::processCronTabClusterIds( )
 void
 Scheduler::calculateCronTabSchedules( )
 {
-	PROC_ID id;
-	CronTab *cronTab = NULL;
 	this->processCronTabClusterIds();
-	this->cronTabs->startIterations();
-	while ( this->cronTabs->iterate( id, cronTab ) >= 1 ) {
+	for (const auto& [id, cronTab]: cronTabs) {
 		ClassAd *jobAd = GetJobAd( id.cluster, id.proc );
 		if ( jobAd ) {
 			this->calculateCronTabSchedule( jobAd );
@@ -17487,8 +17685,12 @@ Scheduler::calculateCronTabSchedule( ClassAd *jobAd, bool calculate )
 		//
 		// Check whether this needs a schedule
 		//
-	if ( !CronTab::needsCronTab( jobAd ) ) {	
-		this->cronTabs->remove( id );
+	if ( !CronTab::needsCronTab( jobAd ) ) {
+		auto it = cronTabs.find(id);
+		if (it != cronTabs.end()) {
+			delete it->second;
+			cronTabs.erase(it);
+		}
 		return ( true );
 	}
 	
@@ -17519,7 +17721,10 @@ Scheduler::calculateCronTabSchedule( ClassAd *jobAd, bool calculate )
 		// See if we can get the cached scheduler object 
 		//
 	CronTab *cronTab = NULL;
-	(void) this->cronTabs->lookup( id, cronTab );
+	auto it = cronTabs.find(id);
+	if (it != cronTabs.end()) {
+		cronTab = it->second;
+	}
 	if ( ! cronTab ) {
 			//
 			// There wasn't a cached object, so we'll need to create
@@ -17535,7 +17740,7 @@ Scheduler::calculateCronTabSchedule( ClassAd *jobAd, bool calculate )
 				//
 			valid = cronTab->isValid();
 			if ( valid ) {
-				this->cronTabs->insert( id, cronTab, true );
+				cronTabs[id] = cronTab;
 			} else {
 				error = cronTab->getError();
 				delete cronTab;

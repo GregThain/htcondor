@@ -1299,7 +1299,7 @@ bool QmgmtPeer::setEffectiveOwner(const JobQueueUserRec * urec, bool ignore_effe
 
 	jquser = urec;
 	if ( ! jquser) {
-		dprintf(D_ALWAYS, "QmgmtPeer::setEffectiveOwner(%p,%d) result is to clear effective\n",
+		dprintf(D_FULLDEBUG, "QmgmtPeer::setEffectiveOwner(%p,%d) result is to clear effective\n",
 			urec, ignore_effective_super);
 		return true;
 	}
@@ -1317,7 +1317,7 @@ bool QmgmtPeer::setEffectiveOwner(const JobQueueUserRec * urec, bool ignore_effe
 		fquser = strdup(user.c_str());
 	}
 
-	dprintf(D_ALWAYS, "QmgmtPeer::setEffectiveOwner(%p,%d) result is user=%s owner=%s\n",
+	dprintf(D_FULLDEBUG, "QmgmtPeer::setEffectiveOwner(%p,%d) result is user=%s owner=%s\n",
 		urec, ignore_effective_super,
 		fquser ? fquser : "(null)",
 		owner ? owner : "(null)");
@@ -4597,6 +4597,10 @@ ModifyAttrCheck(const JOB_ID_KEY_BUF &key, const char *attr_name, const char *at
 {
 	JobQueueJob    *job = nullptr;
 
+	// Note: (flags & SetAttribute_UserTransform) indicates a post-submit transform defined by the user
+	// these transforms are unable to even attempt to change other users jobs, but should not
+	// be able to change secure, immutable or protected attributes
+
 	const char *func_name = (flags & SetAttribute_Delete) ? "DeleteAttribute" : "SetAttribute";
 
 	// Only an authenticated user or the schedd itself can modify an attribute.
@@ -4646,12 +4650,15 @@ ModifyAttrCheck(const JOB_ID_KEY_BUF &key, const char *attr_name, const char *at
 	if (secure_attrs.find(attr_name) != secure_attrs.end())
 	{
 		// should we fail or silently succeed?  (old submits set secure attrs)
-		const CondorVersionInfo *vers = nullptr;
+		bool fail_quietly = (flags & SetAttribute_UserTransform) != 0; // internal calls should fail quietly
 		if ( Q_SOCK && ! Ignore_Secure_SetAttr_Attempts) {
-			vers = Q_SOCK->get_peer_version();
+			const CondorVersionInfo *vers = Q_SOCK->get_peer_version();
+			if (vers && vers->built_since_version( 8, 5, 8 )) {
+				// new versions should know better!  fail!
+				fail_quietly = false;
+			}
 		}
-		if (vers && vers->built_since_version( 8, 5, 8 ) ) {
-			// new versions should know better!  fail!
+		if ( ! fail_quietly) {
 			dprintf(D_ALWAYS,
 				"%s attempt to edit secure attribute %s in job %d.%d. Failing!\n",
 				func_name, attr_name, key.cluster, key.proc);
@@ -4718,7 +4725,7 @@ ModifyAttrCheck(const JOB_ID_KEY_BUF &key, const char *attr_name, const char *at
 		const JobQueueUserRec * auth_user = EffectiveUserRec(Q_SOCK);
 		if ( Q_SOCK && 
 			 ( (!isQueueSuperUser(auth_user) && !qmgmt_all_users_trusted) ||
-			    !Q_SOCK->getAllowProtectedAttrChanges() ) &&
+			    !Q_SOCK->getAllowProtectedAttrChanges() || (flags & SetAttribute_UserTransform) ) &&
 			 protected_attrs.find(attr_name) != protected_attrs.end() )
 		{
 			dprintf(D_ALWAYS,
@@ -9607,6 +9614,9 @@ void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad,
 	// Stringify the user to make comparison faster
 	std::string user_str = user ? user : "";
 
+	std::string remoteOwner;
+	my_match_ad->LookupString(ATTR_REMOTE_OWNER, remoteOwner);
+
 	do {
 		auto first = PrioRec.begin();
 		auto end = PrioRec.end();
@@ -9646,11 +9656,15 @@ void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad,
 			}
 
 			if (ocu) {
-				if (match_any_user) {
+				std::string jobOwner;
+				job->LookupString(ATTR_USER, jobOwner);
+
+				if (remoteOwner == jobOwner) {
 					// Our OCU claim
 					bool OCUWanted = false;
+					// Only match our own OCU claim if OCUWanted is true
 					job->LookupBool("OCUWanted", OCUWanted);
-					if ( ! OCUWanted) {
+					if (!OCUWanted) {
 						continue;
 					}
 				} else {
@@ -9774,6 +9788,16 @@ void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad,
 			}
 
 			jobid = job->jid; // success!
+			if (ocu) {
+				if (my_match_ad) {
+					int ocu_claims = 0;
+					std::string ocu_claim_stat_attr = 
+						match_any_user ? "OCUClaimsByBorrowers" : "OCUClaimsByOwner";
+					my_match_ad->LookupInteger(ocu_claim_stat_attr, ocu_claims);
+					ocu_claims++;
+					my_match_ad->Assign(ocu_claim_stat_attr, ocu_claims);
+				}
+			}
 			return;
 
 		}	// end of for loop through PrioRec array
