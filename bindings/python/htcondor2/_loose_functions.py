@@ -18,8 +18,9 @@ from .htcondor2_impl import (
     HTCondorException,
 )
 
+from ._param import _param as param
+
 import os
-import htcondor2
 
 
 def _daemon_type_from_ad_type(ad_type: AdType):
@@ -31,6 +32,7 @@ def _daemon_type_from_ad_type(ad_type: AdType):
         AdType.Generic: DaemonType.Generic,
         AdType.HAD: DaemonType.HAD,
         AdType.Credd: DaemonType.Credd,
+        AdType.Placementd: DaemonType.Credd,
     }
     # Should raise HTCondorEnumError.
     return map.get(ad_type, None)
@@ -78,7 +80,7 @@ def send_alive(
         raise TypeError("pid must be integer")
 
     if timeout is None:
-        timeout = htcondor2.param['NOT_RESPONDING_TIMEOUT']
+        timeout = param['NOT_RESPONDING_TIMEOUT']
     if not isinstance(timeout, int):
         raise TypeError("timeout must be integer")
 

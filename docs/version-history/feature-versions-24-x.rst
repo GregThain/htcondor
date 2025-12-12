@@ -6,14 +6,46 @@ These are Long Term Support (LTS) versions of HTCondor. As usual, only bug fixes
 (and potentially, ports to new platforms) will be provided in future
 24.12.y versions. New features will be added in the 25.x.y feature versions.
 
+Version 24.12.16
+----------------
+
+Release Notes:
+
+.. HTCondor version 24.12.16 released on January 8, 2026.
+
+- HTCondor version 24.12.16 planned release date is January 8, 2026.
+
+New Features:
+
+.. include-history:: features 24.12.16 24.0.16
+
+Bugs Fixed:
+
+.. include-history:: bugs 24.12.16 24.0.16
+
+Version 24.12.15
+----------------
+
+Release Notes:
+
+.. HTCondor version 24.12.15 released on December 11, 2025.
+
+- HTCondor version 24.12.15 planned release date is December 11, 2025.
+
+New Features:
+
+.. include-history:: features 24.12.15 24.0.15
+
+Bugs Fixed:
+
+.. include-history:: bugs 24.12.15 24.0.15
+
 Version 24.12.14
 ----------------
 
 Release Notes:
 
-.. HTCondor version 24.12.14 released on November 6, 2025.
-
-- HTCondor version 24.12.14 planned release date is November 6, 2025.
+- HTCondor version 24.12.14 released on November 3, 2025.
 
 New Features:
 
@@ -23,14 +55,25 @@ Bugs Fixed:
 
 .. include-history:: bugs 24.12.14 24.0.14
 
+- Fixed bug where when :macro:`SINGULARITY_TARGET_DIR` was set and
+  :macro:`STARTER_NESTED_SCRATCH` was also set, then some environment
+  variables that pointed into the job's execute directory were not correct.
+  :jira:`3265`
+
+- Fixed a bug causing some file-transfer plug-ins (box, gdrive, and onedrive)
+  to fail immediately on start-up.
+  :jira:`3317`
+
+- Fixed a bug where *condor_qusers* would treat the ``add`` option as ``enable``
+  when the leading dash was omitted.
+  :jira:`3284`
+
 Version 24.12.13
 ----------------
 
 Release Notes:
 
-.. HTCondor version 24.12.13 released on October 23, 2025.
-
-- HTCondor version 24.12.13 planned release date is October 23, 2025.
+- HTCondor version 24.12.13 released on October 9, 2025.
 
 New Features:
 
@@ -40,22 +83,26 @@ Bugs Fixed:
 
 .. include-history:: bugs 24.12.13 24.0.13
 
-Version 24.12.3
+Version 24.x Feature Releases
+=============================
+
+We release new features in these releases of HTCondor. The details of each
+version are described below.
+
+Version 24.12.4
 ---------------
 
 Release Notes:
 
-.. HTCondor version 24.12.3 released on September 18, 2025.
-
-- HTCondor version 24.12.3 planned release date is September 18, 2025.
+- HTCondor version 24.12.4 released on September 23, 2025.
 
 New Features:
 
-.. include-history:: features 24.12.3 24.0.12 23.10.29 23.0.29
+.. include-history:: features 24.12.4 24.0.12 23.10.29 23.0.29
 
 Bugs Fixed:
 
-.. include-history:: bugs 24.12.3 24.0.12 23.10.29 23.0.29
+.. include-history:: bugs 24.12.4 24.0.12 23.10.29 23.0.29
 
 Version 24.11.2
 ---------------

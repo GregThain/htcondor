@@ -329,11 +329,11 @@ and :ref:`admin-manual/configuration-macros:shared file system configuration fil
     configuration. Relevant only if HTCondor daemons are not run as root
     on Unix platforms or Local System on Windows platforms. The default
     is ``$(HOME)/.condor/user_config`` on Unix platforms. The default is
-    %USERPROFILE\\.condor\\user_config on Windows platforms. If a fully
+    %USERPROFILE%\\.condor\\user_config on Windows platforms. If a fully
     qualified path is given, that is used. If a fully qualified path is
     not given, then the Unix path ``$(HOME)/.condor/`` prefixes the file
     name given on Unix platforms, or the Windows path
-    %USERPROFILE\\.condor\\ prefixes the file name given on Windows
+    %USERPROFILE%\\.condor\\ prefixes the file name given on Windows
     platforms.
 
     The ability of a user to use this user-specified configuration file
@@ -1197,37 +1197,6 @@ subsystem corresponding to the daemon.
     A boolean value that is ``True`` by default. When ``True``, writes
     to the user's job event log are sync-ed to disk before releasing the
     lock.
-
-:macro-def:`USERLOG_FILE_CACHE_MAX[Global]`
-    The integer number of job event log files that the *condor_schedd*
-    will keep open for writing during an interval of time (specified by
-    :macro:`USERLOG_FILE_CACHE_CLEAR_INTERVAL`). The default value is 0,
-    causing no files to remain open; when 0, each job event log is
-    opened, the event is written, and then the file is closed.
-    Individual file descriptors are removed from this count when the
-    *condor_schedd* detects that no jobs are currently using them.
-    Opening a file is a relatively time consuming operation on a
-    networked file system (NFS), and therefore, allowing a set of files
-    to remain open can improve performance. The value of this variable
-    needs to be set low enough such that the *condor_schedd* daemon
-    process does not run out of file descriptors by leaving these job
-    event log files open. The Linux operating system defaults to
-    permitting 1024 assigned file descriptors per process; the
-    *condor_schedd* will have one file descriptor per running job for
-    the *condor_shadow*.
-
-:macro-def:`USERLOG_FILE_CACHE_CLEAR_INTERVAL[Global]`
-    The integer number of seconds that forms the time interval within
-    which job event logs will be permitted to remain open when
-    :macro:`USERLOG_FILE_CACHE_MAX` is greater than zero. The default is 60
-    seconds. When the interval has passed, all job event logs that the
-    *condor_schedd* has permitted to stay open will be closed, and the
-    interval within which job event logs may remain open between writes
-    of events begins anew. This time interval may be set to a longer
-    duration if the administrator determines that the *condor_schedd*
-    will not exceed the maximum number of file descriptors; a longer
-    interval may yield higher performance due to fewer files being
-    opened and closed.
 
 :macro-def:`CREATE_LOCKS_ON_LOCAL_DISK[Global]`
     A boolean value utilized only for Unix operating systems, that
@@ -3816,7 +3785,7 @@ prevent the job from using more scratch space than provisioned.
         Docker and VM Universe jobs are not compatible with mount namespaces.
 
 :macro-def:`LVM_CLEANUP_FAILURE_MAKES_BROKEN_SLOT[STARTD]`
-    A boolean value that defaults to ``False``. When ``True`` EP slots
+    A boolean value that defaults to ``True``. When ``True`` EP slots
     will be marked as broken if the associated ephemeral logical volume
     is failed to be cleaned up.
 
@@ -4507,7 +4476,8 @@ See (:ref:`admin-manual/ep-policy-configuration:power management`). for more det
     container.
 
 :macro-def:`DOCKER_PERFORM_TEST[STARTD]`
-    When the *condor_startd* starts up, it runs a simple Docker
+    When the *condor_startd* starts up, and on every
+    :tool:`condor_reconfig`, it runs a simple Docker
     container to verify that Docker completely works.  If 
     DOCKER_PERFORM_TEST is false, this test is skipped.
 
@@ -4561,6 +4531,12 @@ See (:ref:`admin-manual/ep-policy-configuration:power management`). for more det
     in the docker image, and allows images of any architecture to attempt to 
     run on the EP.  When true, if the Architecture in the image is defined
     and does not match the EP, the job is put on hold.
+
+:macro-def:`DOCKER_TRUST_LOCAL_IMAGES[STARTD]`
+    Defaults to false.  When true, docker universe jobs can use docker images
+    that have been prestaged into the local docker image cache, even if
+    that image cannot be pulled from a repository, or if it doesn't exist
+    in any repository.
 
 :macro-def:`OPENMPI_INSTALL_PATH[STARTD]`
     The location of the Open MPI installation on the local machine.
@@ -5112,16 +5088,6 @@ These macros control the *condor_schedd*.
     and the *condor_schedd* no longer pays for the resource (in terms of
     user priority in the system). The macro is defined in terms of seconds
     and defaults to 300, which is 5 minutes.
-
-:macro-def:`STARTD_SENDS_ALIVES[SCHEDD]`
-    Note: This setting is deprecated, and may go away in a future
-    version of HTCondor. This setting is mainly useful when running
-    mixing very old *condor_schedd* daemons with newer pools. A boolean
-    value that defaults to ``True``, causing keep alive messages to be
-    sent from the *condor_startd* to the *condor_schedd* by TCP during
-    a claim. When ``False``, the *condor_schedd* daemon sends keep
-    alive signals to the *condor_startd*, reversing the direction.
-    This variable is only used by the *condor_schedd* daemon.
 
 :macro-def:`REQUEST_CLAIM_TIMEOUT[SCHEDD]`
     This macro sets the time (in seconds) that the *condor_schedd* will
@@ -6013,6 +5979,13 @@ These macros control the *condor_schedd*.
     permissions as the main :macro:`SPOOL` directory. Care must be taken that
     the value won't change during the lifetime of each job.
 
+:macro-def:`UNUSED_CLAIM_TIMEOUT[SCHEDD]`
+    An integer value that is only used by the dedicated scheduler when
+    scheduling parallel universe jobs. It specifies the number of
+    seconds the schedd will keep a claimed slot, even when idle.  Zero
+    seconds means the schedd will keep a claim for an unbounded amount
+    of time.  Default is 300 seconds.
+
 :macro-def:`<OAuth2Service>_CLIENT_ID[SCHEDD]`
     The client ID string for an OAuth2 service named ``<OAuth2Service>``.
     The client ID is passed on to the *condor_credmon_oauth*
@@ -6346,10 +6319,10 @@ These settings affect the *condor_starter*.
     :macro:`STARTER_UPDATE_INTERVAL`.
 
 :macro-def:`STARTER_UPDATE_INTERVAL_MAX[STARTER]`
-    An integer value representing an upper bound on the number of 
+    An integer value representing an upper bound on the number of
     seconds between updates controlled by :macro:`STARTER_UPDATE_INTERVAL` and
     :macro:`STARTER_UPDATE_INTERVAL_TIMESLICE`.  It is recommended to leave this parameter
-    at its default value, which is calculated 
+    at its default value, which is calculated
     as :macro:`STARTER_UPDATE_INTERVAL` * ( 1 / :macro:`STARTER_UPDATE_INTERVAL_TIMESLICE` )
 
 :macro-def:`USER_JOB_WRAPPER[STARTER]`
@@ -6487,7 +6460,7 @@ These settings affect the *condor_starter*.
     permissions.  The ``nvidia-smi`` command will not report them as being available.
     Setting this macro to false returns to the previous functionality (of allowing jobs
     to access NVidia GPUs not assigned to them).
-   
+
 :macro-def:`USE_VISIBLE_DESKTOP[STARTER]`
     This boolean variable is only meaningful on Windows machines. If
     ``True``, HTCondor will allow the job to create windows on the
@@ -6506,7 +6479,7 @@ These settings affect the *condor_starter*.
     the submit file, the user's setting takes precedence.
 
 :macro-def:`JOB_INHERITS_STARTER_ENVIRONMENT[STARTER]`
-    A matchlist or boolean value that defaults to ``False``. When set to 
+    A matchlist or boolean value that defaults to ``False``. When set to
     a matchlist it causes jobs to inherit all environment variables from the
     *condor_starter* that are selected by the match list and not already defined
     in the job ClassAd or by the :macro:`STARTER_JOB_ENVIRONMENT` configuration variable.
@@ -6520,14 +6493,6 @@ These settings affect the *condor_starter*.
     to force a matching environment variable to not be imported.  The order of members in the Matchlist
     has no effect on the result.  For backward compatibility a single value of ``True`` behaves as if the value
     was set to ``*``.  Prior to HTCondor version 10.1.0 all values other than ``True`` are treated as ``False``.
-
-:macro-def:`NAMED_CHROOT[STARTER]`
-    A comma and/or space separated list of full paths to one or more
-    directories, under which the *condor_starter* may run a chroot-ed
-    job. This allows HTCondor to invoke chroot() before launching a job,
-    if the job requests such by defining the job ClassAd attribute
-    :ad-attr:`RequestedChroot` with a directory that matches one in this list.
-    There is no default value for this variable.
 
 :macro-def:`STARTER_UPLOAD_TIMEOUT[STARTER]`
     An integer value that specifies the network communication timeout to
@@ -6592,6 +6557,14 @@ These settings affect the *condor_starter*.
     specifying a URL. See
     :ref:`admin-manual/file-and-cred-transfer:Custom File Transfer Plugins`
     for a description of the functionality required of a plug-in.
+
+:macro-def:`FILETRANSFER_PLUGIN_CLASSAD_TIMEOUT[STARTER]`
+    An integer number of seconds (defaulting to 20 seconds) after which
+    the starter will kill a file transfer plug-in if it takes too long
+    to return its ClassAd describing its capabilities.  This may 
+    need to be set higher than the default if the plugin is stored 
+    on a slow or shared filesystem, or if it does a significant amount 
+    of work to generate its ClassAd.
 
 :macro-def:`<PLUGIN>_TEST_URL[STARTER]`
     This configuration takes a URL to be tested against the specified
@@ -6782,10 +6755,8 @@ These settings affect the *condor_starter*.
     the job proper after dropping a file indicating that the shell wrapper
     has successfully run inside the container.  When HTCondor sees this file
     exists, it knows the container runtime has successfully launched the image.
-    If the job exits without this file, HTCondor assumes there is some problem 
+    If the job exits without this file, HTCondor assumes there is some problem
     with the runtime, and retries the job.
-
-    
 
 :macro-def:`SINGULARITY_BIND_EXPR[STARTER]`
     A string value containing a list of bind mount specifications to be passed
@@ -6832,6 +6803,10 @@ These settings affect the *condor_starter*.
     A string value that when :macro:`USE_DEFAULT_CONTAINER` is true, contains the container
     image to use, either starting with docker:, ending in .sif for a sif file, or otherwise
     an exploded directory for singularity/apptainer to run.
+
+:macro-def:`REACTIVATE_ON_RESTART`
+    A boolean value.  If true, self-checkpointing jobs will not restart after
+    uploading a checkpoint if the slot would not otherwise be reactivatable.
 
 condor_submit Configuration File Entries
 -----------------------------------------
@@ -8087,6 +8062,12 @@ The following configuration macros affect negotiation for group users.
     :ad-attr:`SlotWeight`. When ``False``, each slot effectively has a weight
     of 1.
 
+:macro-def:`FORCE_NEGOTIATOR_SLOT_WEIGHT[NEGOTIATOR]`
+    A boolean value with a default of ``False``. When ``True``, the
+    *condor_negotiator* will ignore the machine ClassAd attribute
+    :ad-attr:`SlotWeight` and use the expression in :macro:`SLOT_WEIGHT`
+    of the negotiator config as the weight of the slot instead.
+
 :macro-def:`NEGOTIATOR_USE_WEIGHTED_DEMAND[NEGOTIATOR]`
     A boolean value that defaults to ``True``. When ``False``, the
     behavior is the same as for HTCondor versions prior to 7.9.6. If
@@ -8669,6 +8650,26 @@ These macros affect the *condor_job_router* daemon.
     *condor_job_router* does not attempt to reset the original job
     ClassAd to a pre-claimed state upon yielding control of the job.
 
+:macro-def:`JOB_ROUTER_SCHEDD1_ADDRESS_FILE[JOB ROUTER]`
+    The path to the address file file for the *condor_schedd*
+    serving as the source of jobs for routing.  If specified,
+    this must point to the file configured as :macro:`SCHEDD_ADDRESS_FILE`
+    of the *condor_schedd* identified by :macro:`JOB_ROUTER_SCHEDD1_NAME`.
+    When configured, the *condor_job_router* will first look in this
+    address file to get the address of the source schedd and will only
+    query the collector specified in :macro:`JOB_ROUTER_SCHEDD1_POOL`
+    if it does not find an address in that file.
+
+:macro-def:`JOB_ROUTER_SCHEDD2_ADDRESS_FILE[JOB ROUTER]`
+    The path to the job_queue.log file for the *condor_schedd*
+    serving as the destination of jobs for routing.  If specified,
+    this must point to the the file configured as :macro:`SCHEDD_ADDRESS_FILE`
+    of the *condor_schedd* identified by :macro:`JOB_ROUTER_SCHEDD2_NAME`.
+    When configured, the *condor_job_router* will first look in this
+    address file to get the address of the destination schedd and will only
+    query the collector specified in :macro:`JOB_ROUTER_SCHEDD2_POOL`
+    if it does not find an address in that file.
+
 :macro-def:`JOB_ROUTER_SCHEDD1_JOB_QUEUE_LOG[JOB ROUTER]`
     The path to the job_queue.log file for the *condor_schedd*
     serving as the source of jobs for routing.  If specified,
@@ -8881,6 +8882,16 @@ General
     The path to the configuration file to be used by :tool:`condor_dagman`.
     This option is set by :tool:`condor_submit_dag` automatically and should not be
     set explicitly by the user. Defaults to an empty string.
+
+:macro-def:`DAGMAN_USE_OLD_FILE_PARSER[DAGMan]`
+    A boolean that defaults to ``True``, when ``True`` *condor_dagman* will use
+    the old file parser to process DAG files.
+
+.. note::
+
+    This option is intended to be a fall back to the known working DAG file parser
+    while transitioning to the new style parser. This will be deprecated in the
+    future.
 
 :macro-def:`DAGMAN_USE_STRICT[DAGMan]`
     An integer defining the level of strictness :tool:`condor_dagman` will
@@ -9862,13 +9873,16 @@ macros are described in the :doc:`/admin-manual/security` section.
     and to ``$(RELEASE_DIR)\tokens.sk\POOL`` on Windows.
 
 :macro-def:`SEC_TOKEN_SYSTEM_DIRECTORY[SECURITY]`
-    For Unix machines, the path to the directory containing tokens for
-    daemon-to-daemon authentication with the token method.  Defaults to
-    ``/etc/condor/tokens.d``.
+    The path to the directory containing tokens for
+    daemon-to-daemon authentication with the token method.
+    Defaults to ``/etc/condor/tokens.d`` on unix and
+    ``$(RELEASE_DIR)\tokens.d`` on Windows.
 
 :macro-def:`SEC_TOKEN_DIRECTORY[SECURITY]`
-    For Unix machines, the path to the directory containing tokens for
-    user authentication with the token method.  Defaults to ``~/.condor/tokens.d``.
+    The path to the directory containing tokens for
+    user authentication with the token method.
+    Defaults to ``~/.condor/tokens.d`` on unix and
+    %USERPROFILE%\\.condor\\tokens.d on Windows.
 
 :macro-def:`SEC_TOKEN_REVOCATION_EXPR[SECURITY]`
     A ClassAd expression evaluated against tokens during authentication;

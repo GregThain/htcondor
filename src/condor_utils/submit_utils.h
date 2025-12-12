@@ -188,6 +188,7 @@
 #define SUBMIT_KEY_DontEncryptOutputFiles "dont_encrypt_output_files"
 
 #define SUBMIT_KEY_OutputDestination "output_destination"
+#define SUBMIT_KEY_OutputDirectory "output_directory"
 
 #define SUBMIT_KEY_StreamInput "stream_input"
 #define SUBMIT_KEY_StreamOutput "stream_output"
@@ -273,6 +274,7 @@
 // Accounting Group parameters
 #define SUBMIT_KEY_AcctGroup "accounting_group"
 #define SUBMIT_KEY_AcctGroupUser "accounting_group_user"
+#define SUBMIT_KEY_ProjectName "project_name"
 
 //
 // docker "universe" Parameters
@@ -1019,7 +1021,7 @@ struct SubmitStepFromQArgs {
 		m_hash.optimize();
 	}
 
-	int load_items(MacroStream & ms_inline_items, bool allow_stdin, std::string errmsg)
+	int load_items(MacroStream & ms_inline_items, bool allow_stdin, std::string & errmsg)
 	{
 		int rval = m_hash.load_inline_q_foreach_items(ms_inline_items, m_fea, errmsg);
 		if (rval == 1) { // items are external
@@ -1229,6 +1231,7 @@ int process_job_credentials(
     // Input parameters.
     SubmitHash & submit_hash,
     int DashDryRun /* should default to 0 */,
+    Daemon * schedd_or_credd,
 
     // Output parameters.
     std::string & URL,

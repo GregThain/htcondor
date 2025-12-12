@@ -79,7 +79,7 @@ is:
    defined by configuration variable :macro:`USER_CONFIG_FILE`;
 
    if HTCondor daemons are not running as Local System on Windows
-   platforms, the file %USERPROFILE\\.condor\\user_config if it exists,
+   platforms, the file %USERPROFILE%\\.condor\\user_config if it exists,
    or the file defined by configuration variable :macro:`USER_CONFIG_FILE`;
 
 #. specific environment variables whose names are prefixed with
@@ -135,6 +135,12 @@ specified here. In order:
 #. If one of these steps changes the value (right hand side) of
    :macro:`LOCAL_CONFIG_DIR`, then :macro:`LOCAL_CONFIG_DIR` is processed for a
    second time, using the changed list of directories.
+
+.. note::
+
+    All files that do not match :macro:`LOCAL_CONFIG_DIR_EXCLUDE_REGEXP`
+    within the :macro:`LOCAL_CONFIG_DIR` will be processed. Any file matching
+    the exclusion regular expression will be ignored.
 
 The parsing and use of configuration files may be bypassed by setting
 environment variable ``CONDOR_CONFIG`` with the string ``ONLY_ENV``.

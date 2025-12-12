@@ -969,13 +969,14 @@ FileTransfer::_Init(
 
 	dprintf(D_FULLDEBUG,"entering FileTransfer::Init\n");
 
+	if (ActiveTransferTid >= 0) {
+		dprintf(D_ERROR, "FileTransfer::Init called during active transfer!\n");
+		return 0;
+	}
+
 	m_use_file_catalog = use_file_catalog;
 
 	simple_init = false;
-
-	if (ActiveTransferTid >= 0) {
-		EXCEPT("FileTransfer::Init called during active transfer!");
-	}
 
 	// Note: we must register commands here instead of our constructor
 	// to ensure that daemonCore object has been initialized before we
@@ -992,7 +993,8 @@ FileTransfer::_Init(
 							&FileTransfer::Reaper,
 							"FileTransfer::Reaper()");
 		if (ReaperId == 1) {
-			EXCEPT("FileTransfer::Reaper() can not be the default reaper!");
+			dprintf(D_ERROR, "FileTransfer::Reaper() can not be the default reaper!\n");
+			return 0;
 		}
 	}
 
@@ -1158,6 +1160,12 @@ FileTransfer::DownloadFiles(bool blocking)
 	FileTransferInfo & Info = r_Info;
 
 	dprintf(D_FULLDEBUG,"entering FileTransfer::DownloadFiles(%s)\n", blocking?"blocking":"");
+
+	// Set this now to let the caller distinguish between a transfer that
+	// failed to launch and a blocking transfer that launched and
+	// completed in failure. In the latter case, xfer_status will be set
+	// to XFER_STATUS_DONE before we return.
+	Info.xfer_status = XFER_STATUS_UNKNOWN;
 
 	if (ActiveTransferTid >= 0) {
 		EXCEPT("FileTransfer::DownloadFiles called during active transfer!");
@@ -1504,6 +1512,12 @@ FileTransfer::UploadFiles(bool blocking, bool final_transfer)
 	ReliSock *sock_to_use;
 	FileTransferInfo & Info = r_Info;
 
+	// Set this now to let the caller distinguish between a transfer that
+	// failed to launch and a blocking transfer that launched and
+	// completed in failure. In the latter case, xfer_status will be set
+	// to XFER_STATUS_DONE before we return.
+	Info.xfer_status = XFER_STATUS_UNKNOWN;
+
 	dprintf(D_FULLDEBUG,
 		"entering FileTransfer::UploadFiles (%sfinal_transfer=%d)\n",
 		blocking?"blocking, ":"",
@@ -1728,7 +1742,7 @@ FileTransfer::Reap(int exit_status)
 	FileTransferInfo & Info = r_Info; // I am the fork parent, so I get to use r_Info
 
 	Info.duration = time(nullptr) - TransferStart;
-	Info.in_progress = false;
+	bool set_success_to_failed = false;
 	if( WIFSIGNALED(exit_status) ) {
 		Info.success = false;
 		Info.try_again = true;
@@ -1745,7 +1759,18 @@ FileTransfer::Reap(int exit_status)
 		} else {
 			dprintf( D_ALWAYS, "File transfer failed (status=%d).\n",
 					 WEXITSTATUS(exit_status) );
-			Info.success = false;
+			// We can't set Info.success to false here, because 
+			// we drain the pipe below, and there might be an info
+			// message before the final update with the error.
+			// ReadTransferPipeMsg() can call a callback to the
+			// caller, which should not see the success status 
+			// as failed until we have the full error message
+			// which comes from the final message on the pipe.
+
+			// Same holds true for in_progress, delay setting
+			// that to true until after we have drained the pipe,
+			// and want to fire the final callback.
+			set_success_to_failed = true;
 		}
 	}
 
@@ -1769,10 +1794,17 @@ FileTransfer::Reap(int exit_status)
 		// followed by the final update message. Keep reading until we
 		// get the final message or encounter an error reading from the pipe
 		do {
-			if ( ! ReadTransferPipeMsg())
+			if ( ! ReadTransferPipeMsg()) {
 				break;
+			}
 		} while (Info.xfer_status != XFER_STATUS_DONE);
 	}
+	if (set_success_to_failed) {
+		// Now we can set success to false, so the final callback
+		// below can interpret everything correctly. 
+		Info.success = false;
+	}
+	Info.in_progress = false;
 
 	if( registered_xfer_pipe ) {
 		registered_xfer_pipe = false;
@@ -6202,6 +6234,15 @@ FileTransfer::Continue() const
 
 
 void
+FileTransfer::addInputFile( const char* filename )
+{
+	if( !file_contains(InputFiles, filename) ) {
+		InputFiles.emplace_back(filename);
+	}
+}
+
+
+void
 FileTransfer::addOutputFile( const char* filename )
 {
 	if( !file_contains(OutputFiles, filename) ) {
@@ -8445,7 +8486,7 @@ FileTransfer::addSandboxRelativePath(
 }
 
 void
-FileTransfer::addCheckpointFile(
+FileTransfer::addCheckpointFileEx(
   const std::string & source, const std::string & destination,
   std::set< std::string > & pathsAlreadyPreserved
 ) {
@@ -8453,7 +8494,7 @@ FileTransfer::addCheckpointFile(
 }
 
 void
-FileTransfer::addInputFile(
+FileTransfer::addInputFileEx(
   const std::string & source, const std::string & destination,
   std::set< std::string > & pathsAlreadyPreserved
 ) {

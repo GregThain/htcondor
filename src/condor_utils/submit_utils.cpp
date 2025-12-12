@@ -58,6 +58,7 @@
 #include <charconv>
 #include <string>
 #include <set>
+#include <regex>
 
 /* Disable gcc warnings about floating point comparisons */
 GCC_DIAG_OFF(float-equal)
@@ -3521,6 +3522,13 @@ int SubmitHash::ReportCommonMistakes()
 		ABORT_AND_RETURN(1);
 	}
 
+	std::string out_dir;
+	if (job->Lookup(ATTR_OUTPUT_DESTINATION) && job->Lookup(ATTR_OUTPUT_DIRECTORY)) {
+		push_error(stderr, "You cannot use both " SUBMIT_KEY_OutputDestination
+			" and " SUBMIT_KEY_OutputDirectory " in the same submit file\n");
+		ABORT_AND_RETURN(1);
+	}
+
 	return abort_code;
 }
 
@@ -4753,6 +4761,7 @@ static const SimpleSubmitKeyword prunable_keywords[] = {
 
 	// formerly SetOutputDestination
 	{SUBMIT_KEY_OutputDestination, ATTR_OUTPUT_DESTINATION, SimpleSubmitKeyword::f_as_string},
+	{SUBMIT_KEY_OutputDirectory, ATTR_OUTPUT_DIRECTORY, SimpleSubmitKeyword::f_as_string | SimpleSubmitKeyword::f_genfile},
 	// formerly SetWantGracefulRemoval
 	{SUBMIT_KEY_WantGracefulRemoval, ATTR_WANT_GRACEFUL_REMOVAL, SimpleSubmitKeyword::f_as_expr},
 	// formerly SetJobMaxVacateTime
@@ -4983,6 +4992,7 @@ static const SimpleSubmitKeyword prunable_keywords[] = {
 	{SUBMIT_KEY_NiceUser, ATTR_NICE_USER_deprecated, SimpleSubmitKeyword::f_as_bool | SimpleSubmitKeyword::f_special_acctgroup},
 	{SUBMIT_KEY_AcctGroup, ATTR_ACCOUNTING_GROUP, SimpleSubmitKeyword::f_as_string | SimpleSubmitKeyword::f_special_acctgroup},
 	{SUBMIT_KEY_AcctGroupUser, ATTR_ACCT_GROUP_USER, SimpleSubmitKeyword::f_as_string | SimpleSubmitKeyword::f_special_acctgroup},
+	{SUBMIT_KEY_ProjectName, ATTR_PROJECT_NAME, SimpleSubmitKeyword::f_as_string | SimpleSubmitKeyword::f_special_acctgroup},
 	//{ "+" ATTR_ACCOUNTING_GROUP, ATTR_ACCOUNTING_GROUP, SimpleSubmitKeyword::f_as_string | SimpleSubmitKeyword::f_special_acctgroup },
 	// invoke SetOAuth
 	{SUBMIT_KEY_NiceUser, ATTR_NICE_USER_deprecated, SimpleSubmitKeyword::f_as_bool | SimpleSubmitKeyword::f_special_acctgroup},
@@ -5309,6 +5319,40 @@ int SubmitHash::SetRequestMem(const char * /*key*/)
 				auto_free_ptr rrm(submit_param(SUBMIT_KEY_RetryRequestMemory));
 				auto_free_ptr rrmax(submit_param(SUBMIT_KEY_RetryRequestMemoryMax));
 				auto_free_ptr rrmincr(submit_param(SUBMIT_KEY_RetryRequestMemoryIncrease));
+				
+				// Check units for retry_request_memory if it's a literal value
+				if (rrm) {
+					char unit = 0;
+					int64_t retry_memory_mb = 0;
+					const char * endp = nullptr;
+					if (parse_int64_bytes(rrm, retry_memory_mb, 1024 * 1024, &unit, ",", &endp)) {
+						auto_free_ptr missingUnitsIs = param("SUBMIT_REQUEST_MISSING_UNITS");
+						if (missingUnitsIs && ! unit) {
+							if (0 == strcasecmp("error", missingUnitsIs)) {
+								push_error(stderr, "\nERROR: retry_request_memory=%s defaults to megabytes, but must contain a units suffix (i.e K, M, or B)\n", rrm.ptr());
+								ABORT_AND_RETURN(1);
+							}
+							push_warning(stderr, "\nWARNING: retry_request_memory=%s defaults to megabytes, but should contain a units suffix (i.e K, M, or B)\n", rrm.ptr());
+						}
+					}
+				}
+				
+				// Check units for retry_request_memory_max if it's a literal value
+				if (rrmax) {
+					char unit = 0;
+					int64_t retry_max_mb = 0;
+					if (parse_int64_bytes(rrmax, retry_max_mb, 1024 * 1024, &unit)) {
+						auto_free_ptr missingUnitsIs = param("SUBMIT_REQUEST_MISSING_UNITS");
+						if (missingUnitsIs && ! unit) {
+							if (0 == strcasecmp("error", missingUnitsIs)) {
+								push_error(stderr, "\nERROR: retry_request_memory_max=%s defaults to megabytes, but must contain a units suffix (i.e K, M, or B)\n", rrmax.ptr());
+								ABORT_AND_RETURN(1);
+							}
+							push_warning(stderr, "\nWARNING: retry_request_memory_max=%s defaults to megabytes, but should contain a units suffix (i.e K, M, or B)\n", rrmax.ptr());
+						}
+					}
+				}
+				
 				if (rrm) {
 					if (rrmincr) {
 						push_warning(stderr, "\nWARNING: retry_request_memory_increase will be ignored because retry_request_memory was used");
@@ -5760,7 +5804,7 @@ int SubmitHash::SetRequirements()
 			break;
 		default:
 			break;
-		} 
+		}
 		if ( ! append_req) {
 				// Didn't find a per-universe version, try the generic,
 				// non-universe specific one:
@@ -5827,7 +5871,7 @@ int SubmitHash::SetRequirements()
 	bool	checks_per_file_encryption = false;
 	bool	checks_hsct = false;
 
-	if( mightTransfer(JobUniverse) ) { 
+	if( mightTransfer(JobUniverse) ) {
 		checks_fsdomain = machine_refs.count(ATTR_FILE_SYSTEM_DOMAIN);
 		checks_file_transfer = machine_refs.count(ATTR_HAS_FILE_TRANSFER) + machine_refs.count(ATTR_HAS_JOB_TRANSFER_PLUGINS);
 		checks_file_transfer_plugin_methods = machine_refs.count(ATTR_HAS_FILE_TRANSFER_PLUGIN_METHODS);
@@ -6153,7 +6197,7 @@ int SubmitHash::SetRequirements()
 	}
 
 	if( mightTransfer(JobUniverse) ) {
-			/* 
+			/*
 			   This is a kind of job that might be using file transfer
 			   or a shared filesystem.  so, tack on the appropriate
 			   clause to make sure we're either at a machine that
@@ -6178,7 +6222,7 @@ int SubmitHash::SetRequirements()
 		if (should_transfer == STF_NO) {
 				// no file transfer used.  if there's nothing about
 				// the FileSystemDomain yet, tack on a clause for
-				// that. 
+				// that.
 			if( ! checks_fsdomain ) {
 				answer += " && " ;
 				answer += domain_check;
@@ -6236,6 +6280,12 @@ int SubmitHash::SetRequirements()
 				answer += " && versioncmp( split(TARGET." ATTR_CONDOR_VERSION ")[1], \"8.9.7\" ) >= 0";
 			}
 
+			bool requireCommonFilesTransfer = false;
+			if( job->LookupBool("RequireCommonFilesTransfer", requireCommonFilesTransfer) ) {
+				if( requireCommonFilesTransfer ) {
+					answer += " && TARGET.HasCommonFilesTransfer >= 2";
+				}
+			}
 
 			// insert expressions to match on transfer plugin methods
 			{
@@ -6263,11 +6313,13 @@ int SubmitHash::SetRequirements()
 					}
 				}
 
-				// check output (only a single file this time)
+				// check output (not a list this time)
 				if (job->LookupString(ATTR_OUTPUT_DESTINATION, file_list)) {
 					if (IsUrl(file_list.c_str())) {
 						std::string tag = getURLType(file_list.c_str(), true);
 						if ( ! jobmethods.count(tag.c_str())) { methods.insert(tag.c_str()); }
+					} else {
+						push_warning(stderr, SUBMIT_KEY_OutputDestination " must be a URL, did you mean " SUBMIT_KEY_OutputDirectory " ?\n");
 					}
 				}
 
@@ -6496,6 +6548,12 @@ int SubmitHash::SetAccountingGroup()
 	// if nice-user is not a prefix, then it conflicts with accounting_group
 	// TODO? should this be a knob?
 	const bool nice_user_is_prefix = false;
+
+	// TODO: default accountin group from project?
+	auto_free_ptr project(submit_param(SUBMIT_KEY_ProjectName, ATTR_PROJECT_NAME));
+	if (project) {
+		AssignJobString(ATTR_PROJECT_NAME, project);
+	}
 
 	// is a group setting in effect?
 	auto_free_ptr group(submit_param(SUBMIT_KEY_AcctGroup, ATTR_ACCOUNTING_GROUP));
@@ -6849,6 +6907,14 @@ int SubmitHash::process_container_input_files(std::vector<std::string> & input_f
 			}
 		}
 	} else {
+		// we get here for late-mat when the digest does not have container_image (it's a constant)
+		// but if we are building an input transfer list, we still need to add the full path of
+		// the container to it.
+		std::string container_path;
+		if (clusterAd && clusterAd->LookupString(ATTR_CONTAINER_IMAGE "FullPath", container_path)) {
+			input_files.emplace_back(container_path);
+			// when there is a clusterAd, accumulate_size_kb will be a nullptr
+		}
 		return 0;
 	}
 
@@ -6866,13 +6932,34 @@ int SubmitHash::process_container_input_files(std::vector<std::string> & input_f
 	// otherwise, add the container image to the list of input files to be xfered
 	// if only docker_image is set, never xfer it
 	// But only if the container image exists on this disk
-	if (container_image.ptr())  {
-		bool userRequestedCommonContainer = true;
+	if (container_image)  {
+		bool userRequestedCommonContainer = param_boolean(
+			"CONTAINER_IMAGES_COMMON_BY_DEFAULT",
+			false
+		);
+
+		std::string r;
+		param( r, "CONTAINER_REGEX_COMMON_BY_DEFAULT" );
+		if(! r.empty()) {
+			std::regex * re = nullptr;
+			try {
+				re = new std::regex(r);
+			} catch( const std::regex_error & e ) {
+				dprintf( D_ALWAYS, "CONTAINER_REGEX_COMMON_BY_DEFAULT '%s' is not a valid regular expression, ignoring.  (%s)\n", r.c_str(), e.what() );
+			}
+			if( re != NULL ) {
+				std::cmatch match;
+				if( std::regex_match( container_image.ptr(), match, * re ) ) {
+					userRequestedCommonContainer = true;
+				}
+			}
+		}
+
 		job->LookupBool(ATTR_CONTAINER_IS_COMMON, userRequestedCommonContainer);
 		if(! userRequestedCommonContainer) {
 			input_files.emplace_back(container_image.ptr());
 			if (accumulate_size_kb) {
-				*accumulate_size_kb += calc_image_size_kb(container_image.ptr());
+				*accumulate_size_kb += calc_image_size_kb(container_image);
 			}
 		} else {
 			// FIXME: This does not check to see if the container image varies
@@ -6900,6 +6987,10 @@ int SubmitHash::process_container_input_files(std::vector<std::string> & input_f
 			container_tmp = container_tmp.substr(0, container_tmp.size() - 1);
 		}
 		job->Assign(ATTR_CONTAINER_IMAGE, condor_basename(container_tmp.c_str()));
+
+		// if we are going to change ContainerImage, we need to store the full pathname
+		// for use by late-materialization when late-mat will be building a per-job transfer input list
+		job->Assign(ATTR_CONTAINER_IMAGE "FullPath", container_image.ptr());
 
 		size_t pos = container_tmp.find(':');
 		if (pos == std::string::npos) {
@@ -9264,14 +9355,6 @@ int SubmitHash::load_external_q_foreach_items (
 			expand_options &= ~(EXPAND_GLOBS_TO_FILES|EXPAND_GLOBS_TO_DIRS);
 		}
 		citems = submit_expand_globs(o.items, expand_options, errmsg);
-		if ( ! errmsg.empty()) {
-			if (citems >= 0) {
-				push_warning(stderr, "%s", errmsg.c_str());
-			} else {
-				push_error(stderr, "%s", errmsg.c_str());
-			}
-			errmsg.clear();
-		}
 		if (citems < 0) return citems;
 		break;
 
@@ -9833,6 +9916,7 @@ int
 process_job_credentials(
 	SubmitHash & submit_hash,
 	int DashDryRun,
+	Daemon* schedd_or_credd,
 
 	std::string & URL,
 	std::string & error_string
@@ -9976,18 +10060,40 @@ process_job_credentials(
 			}
 
 			dprintf(D_ALWAYS, "CREDMON: storing credential with CredD.\n");
-			Daemon my_credd(DT_CREDD);
-			if (my_credd.locate()) {
-				// this version check will fail if CredD is not
-				// local.  the version is not exchanged over
-				// the wire until calling startCommand().  if
-				// we want to support remote submit we should
-				// just send the command anyway, after checking
-				// to make sure older CredDs won't completely
-				// choke on the new protocol.
-				bool new_credd = true; // assume new credd
-				if (my_credd.version()) {
-					CondorVersionInfo cvi(my_credd.version());
+
+			Daemon credd(DT_CREDD);
+
+			// the passed in daemon object should be a DCSchedd, but it is permitted to be a DT_CREDD
+			// in either case we want to initialize our credd object from the passed-in one if we can.
+			if (schedd_or_credd) {
+				DCSchedd * schedd = dynamic_cast<DCSchedd*>(schedd_or_credd);
+				if (schedd) {
+					std::string credd_address;
+					if (schedd->getCreddAddress(credd_address)) {
+						// when we init the credd from the schedd's locationAd,
+						// it will pick up the CreddIpAddr in the locationAd and
+						// use it to set the addr field of the daemon object
+						// And it will use the name, machine, and version of the schedd
+						// TODO: does the location ad need to know the name of the credd?
+						credd = Daemon(schedd->locationAd(), DT_CREDD, schedd->pool());
+					} else {
+						if (schedd->name() && ! schedd->isLocal()) {
+							// this is a Hail Mary, if the address of the credd is not known,
+							// and the schedd is remote we hope that the credd name and the schedd name are the same.
+							// if this is a local schedd, we are better off using a default credd.
+							credd = Daemon(DT_CREDD, schedd->name(), schedd->pool());
+						}
+					}
+				} else if (schedd_or_credd->type() == DT_CREDD) {
+					credd = *schedd_or_credd;
+				}
+			}
+
+			// if we did not init the credd object from an ad, we need to locate now.
+			if (credd.locate()) {
+				bool new_credd = true; // assume new credd if version is not known.
+				if (credd.version()) {
+					CondorVersionInfo cvi(credd.version());
 					new_credd = (cvi.getMajorVer() <= 0) || cvi.built_since_version(8, 9, 7);
 				}
 				if (new_credd) {
@@ -9995,18 +10101,18 @@ process_job_credentials(
 					const char * err = NULL;
 					ClassAd return_ad;
 					// pass an empty username here, which tells the CredD to take the authenticated name from the socket
-					long long result = do_store_cred("", mode, uber_ticket, (int)bytes_read, return_ad, NULL, &my_credd);
+					long long result = do_store_cred("", mode, uber_ticket, (int)bytes_read, return_ad, NULL, &credd);
 					if (store_cred_failed(result, mode, &err)) {
 						formatstr( error_string, "ERROR: store_cred of Kerberos credential failed - %s\n", err ? err : "" );
 						return 1;
 					}
 				} else {
 					formatstr( error_string, "\nERROR: Credd is too old to support storing of Kerberos credentials\n"
-							"  Credd version: %s", my_credd.version() );
+							"  Credd version: %s", credd.version());
 					return 1;
 				}
 			} else {
-				formatstr( error_string, "ERROR: locate(credd) failed!\n" );
+				formatstr( error_string, "ERROR: locate(credd) %s failed!\n", credd.name() ? credd.name() : "" );
 				return 1;
 			}
 		}

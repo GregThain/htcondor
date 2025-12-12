@@ -259,6 +259,7 @@ class match_rec
 	int keep_while_idle{0}; // number of seconds to hold onto an idle claim
 	time_t idle_timer_deadline{0}; // if the above is nonzero, abstime to hold claim
 	time_t entered_current_status{0};
+	time_t last_alive{time(0)};
 	PROC_ID m_now_job{0,0};
 
 	ClassAd * my_match_ad{nullptr};
@@ -272,7 +273,6 @@ class match_rec
 	bool			is_ocu {false}; // when true, hold forever, hand out to others
     PROC_ID         ocu_originator;  // procid of the ocu claimer job
 									
-	bool m_startd_sends_alives{false}; // in practice, actual default is true since 7.5.4
 	bool m_claim_pslot{false};
 	int  m_multi_slot{0}; // when > 1, this is a multi-slot claim request
 
@@ -433,6 +433,7 @@ private:
 };
 
 class JobSets; // forward reference - declared in jobsets.h
+class OCU; // forward reference - declared in qmgmt.h
 
 class Scheduler : public Service
 {
@@ -543,12 +544,10 @@ class Scheduler : public Service
 	shadow_rec*		FindSrecByProcID(PROC_ID);
 	void			RemoveShadowRecFromMrec(shadow_rec*);
 	void            sendSignalToShadow(pid_t pid,int sig,PROC_ID proc);
-	int				AlreadyMatched(PROC_ID*);
-	int				AlreadyMatched(JobQueueJob * job, int universe);
 	void			ExpediteStartJobs() const;
 	void			StartJobs( int timerID = -1 );
 	void			StartJob(match_rec *rec);
-	void			sendAlives( int timerID = -1 );
+	void			checkClaimLeases( int timerID = -1 );
 	void			RecomputeAliveInterval(int cluster, int proc);
 	void			StartJobHandler( int timerID = -1 );
 	void			addRunnableJob( shadow_rec* );
@@ -712,8 +711,10 @@ class Scheduler : public Service
 	bool HasPersistentProjectInfo() const { return EnablePersistentProjectInfo; }
 	void deleteZombieOwners(); // delete all zombies (called on shutdown)
 	void purgeZombieOwners();  // delete unreferenced zombies (called in count_jobs)
-	const OwnerInfo * insert_owner_const(const char*);
+	const OwnerInfo * insert_owner_const(const char*, CondorError* errstack=nullptr);
 	const OwnerInfo * lookup_owner_const(const char*);
+	// make sure that the ownerInfo has a valid OsUser, assiging a generic one if needed.
+	const char *    solidify_os_user(const OwnerInfo *, CondorError* errstack=nullptr);
 	// make sure that a job object has a submitter record pointer
 	const SubmitterData * get_submitter(JobQueueJob * job) {
 		SubmitterData * subdat = nullptr;
@@ -725,6 +726,12 @@ class Scheduler : public Service
 	JobQueueProjectRec * get_projectinfo(JobQueueJob * job);
 	// find a project record or insert a pending project record
 	JobQueueProjectRec * insert_projectinfo(const char * project_name);
+
+	void configGenericOsUsers();
+
+	bool m_useGenericOsUsers{false};
+	std::set<std::string> m_openGenericOsUsers;
+	std::set<std::string> m_claimedGenericOsUsers;
 
 	std::set<LocalJobRec> LocalJobsPrioQueue;
 
@@ -755,9 +762,10 @@ class Scheduler : public Service
     // from places other than the scheduler object, necessary.
     ClassAd * getScheddAd() { return m_adSchedd; }
 
-private:
-
 	bool JobCanFlock(classad::ClassAd &job_ad, const char *pool);
+
+	OCU *getOCU(int ocu_id); 
+private:
 
 	// Setup a new security session for a remote negotiator.
 	// Returns a capability that can be included in an ad sent to the collector.
@@ -938,7 +946,7 @@ private:
 
 	// utility functions
 	void		sumAllSubmitterData(SubmitterData &all);
-	void		updateSubmitterAd(SubmitterData &submitterData, ClassAd &pAd, DCCollector *collector,  int flock_level, time_t time_now);
+	void		updateSubmitterAd(SubmitterData &subData, ClassAd &pAd, DCCollector *collector,  int flock_level, time_t time_now);
 	int			count_jobs();
 	bool		fill_submitter_ad(ClassAd & pAd, const SubmitterData & Owner, const std::string &pool_name, int flock_level);
 	int			make_ad_list(ClassAdList & ads, ClassAd * pQueryAd=NULL);
@@ -948,9 +956,13 @@ private:
 	int			command_query_job_aggregates(ClassAd & query, Stream* stream);
 	int			command_query_user_ads(int, Stream* stream);
 	int			command_act_on_user_ads(int, Stream* stream);
+	int			command_act_on_ocus(int, Stream* stream);
+    ClassAd     act_on_ocu_create(const ClassAd &request);
+    ClassAd     act_on_ocu_remove(const ClassAd &request);
+	std::vector<ClassAd>     act_on_ocu_query(const ClassAd &request);
 	void   			check_claim_request_timeouts( void );
 	OwnerInfo     * find_ownerinfo(const char*);
-	OwnerInfo     * insert_ownerinfo(const char*);
+	OwnerInfo     * insert_ownerinfo(const char*, CondorError* errstack=nullptr);
 	SubmitterData * insert_submitter(const char*);
 	SubmitterData * find_submitter(const char*);
 	OwnerInfo * get_submitter_and_owner(JobQueueJob * job, SubmitterData * & submitterinfo);
@@ -1057,7 +1069,7 @@ private:
 		// leaseAliveInterval is the minimum interval we need to send
 		// keepalives based upon ATTR_JOB_LEASE_DURATION...
 	int				leaseAliveInterval;  
-	int				aliveid;	// timer id for sending keepalives to startd
+	int				aliveid;	// timer id for checking claim leases
 	int				MaxExceptions;	 // Max shadow excep. before we relinquish
 
 		// get connection info for creating sec session to a running job
@@ -1104,13 +1116,6 @@ private:
 	std::map<std::string, ClassAd *> m_unclaimedLocalStartds;
 	std::map<std::string, ClassAd *> m_claimedLocalStartds;
 
-    int m_userlog_file_cache_max;
-    time_t m_userlog_file_cache_clear_last;
-    int m_userlog_file_cache_clear_interval;
-    WriteUserLog::log_file_cache_map_t m_userlog_file_cache;
-    void userlog_file_cache_clear(bool force = false);
-    void userlog_file_cache_erase(const int& cluster, const int& proc);
-
 	// State for the history helper queue.
 	// object to manage history queries in flight
 	HistoryHelperQueue HistoryQue;
@@ -1123,6 +1128,7 @@ private:
 	MapFile m_protected_url_map;
 
 	friend class DedicatedScheduler;
+	friend class JobQueueUserRec;
 };
 
 
@@ -1132,7 +1138,6 @@ struct JOB_ID_KEY;
 extern void set_job_status(int cluster, int proc, int status);
 extern bool claimStartd( match_rec* mrec );
 extern bool claimStartdConnected( Sock *sock, match_rec* mrec, ClassAd *job_ad);
-extern bool sendAlive( match_rec* mrec );
 extern void fixReasonAttrs( PROC_ID job_id, JobAction action );
 extern bool moveStrAttr( PROC_ID job_id, const char* old_attr,  
 						 const char* new_attr, bool verbose );
@@ -1144,15 +1149,15 @@ extern void incrementJobAdAttr(int cluster, int proc, const char* attrName, cons
 extern bool holdJob( int cluster, int proc, const char* reason = NULL, 
 					 int reason_code=0, int reason_subcode=0,
 					 bool use_transaction = false, 
-					 bool email_user = false, bool email_admin = false,
+					 bool email_user = false,
 					 bool system_hold = true,
 					 bool write_to_user_log = true);
 extern bool releaseJob( int cluster, int proc, const char* reason = NULL, 
 					 bool use_transaction = false, 
-					 bool email_user = false, bool email_admin = false,
+					 bool email_user = false,
 					 bool write_to_user_log = true);
 extern bool setJobFactoryPauseAndLog(JobQueueCluster * cluster, int pause_mode, int hold_code, const std::string& reason);
-
+extern bool locate_and_advertise_local_credd(bool force);
 
 /** Hook to call whenever we're going to give a job to a "job
 	handler", be that a shadow, starter (local univ), or gridmanager.

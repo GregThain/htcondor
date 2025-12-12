@@ -114,6 +114,7 @@ public:
 		int m_cmd{-1};
 		Sock *m_sock{nullptr};
 		bool m_raw_protocol{false};
+		bool m_force_auth{false};
 		bool m_resume_response{true};
 		CondorError *m_errstack{nullptr};
 		int m_subcmd{-1};
@@ -151,7 +152,7 @@ public:
 	static int authenticate_sock(Sock *s,DCpermission perm, CondorError* errstack);
 	static int authenticate_sock(Sock *s,KeyInfo *&ki, DCpermission perm, CondorError* errstack);
 
-	bool getSessionPolicy(const char *sess_id, classad::ClassAd &policy);
+	const ClassAd* getSessionPolicy(const char *sess_id);
 
 	bool getSessionStringAttribute(const char *sess_id, const char *attr_name, std::string &attr_value);
 

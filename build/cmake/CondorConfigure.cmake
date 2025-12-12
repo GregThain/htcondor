@@ -488,7 +488,7 @@ if("${OS_NAME}" STREQUAL "LINUX")
 	# Our fedora build is almost warning-clean.  Let's keep
 	# it that way.
 	if (EXISTS "/etc/fedora-release") 
-		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+		set (CMAKE_COMPILE_WARNING_AS_ERROR ON)
 	endif()
 
 elseif(APPLE)
@@ -521,6 +521,7 @@ option(BUILD_DAEMONS "Build not just libraries, but also the daemons" ON)
 option(WITH_ADDRESS_SANITIZER "Build with address sanitizer" OFF)
 option(WITH_UB_SANITIZER "Build with undefined behavior sanitizer" OFF)
 option(DOCKER_ALLOW_RUN_AS_ROOT "Support for allow docker universe jobs to run as root inside their container" OFF)
+option(WITH_PLACEMENT "Support for placement tokens and tokens database" OFF)
 if (LINUX)
 	option(WITH_GANGLIA "Compiling with support for GANGLIA" ON)
 endif(LINUX)

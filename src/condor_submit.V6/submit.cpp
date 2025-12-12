@@ -411,7 +411,7 @@ main( int argc, const char *argv[] )
 	install_sig_handler(SIGPIPE, (SIG_HANDLER)SIG_IGN );
 #endif
 
-	bool query_credential = true;
+	bool query_credential = param_boolean("SUBMIT_CHECK_WINDOWS_USER_STORED_CRED", true);
 
 	for( ptr=argv+1,argc--; argc > 0; argc--,ptr++ ) {
 		if( ptr[0][0] == '-' ) {
@@ -1618,6 +1618,7 @@ int submit_jobs (
 			int cred_result = process_job_credentials(
 				submit_hash,
 				DashDryRun,
+				MySchedd,
 				URL,
 				error_string
 			);

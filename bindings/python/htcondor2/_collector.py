@@ -28,6 +28,7 @@ def _ad_type_from_daemon_type(daemon_type: DaemonType):
         DaemonType.HAD: AdType.HAD,
         DaemonType.Credd: AdType.Credd,
         DaemonType.Collector: AdType.Collector,
+        DaemonType.Placementd: AdType.Placementd,
     }
     # Should raise HTCondorEnumError.
     return map.get(daemon_type, None)
@@ -44,7 +45,7 @@ class Collector():
     # In version 1, there was a distinct DaemonLocation type (a named tuple)
     # that `pool` could also be, but that functionality was never documented.
     #
-    def __init__(self, pool : Union[str, classad.ClassAd, List[str], Tuple[str], None] = None, security : SecurityContext = None ):
+    def __init__(self, pool : Union[str, classad.ClassAd, List[str], Tuple[str, ...], None] = None, security : SecurityContext = None ):
         """
         :param pool:  A ``host::port`` string specifying the remote collector,
                       a list (or tuple) of such strings, or a ClassAd
@@ -70,7 +71,7 @@ class Collector():
             _collector_init(self, self._handle, addr, token)
             return
 
-        if isinstance(pool, [list, tuple]):
+        if isinstance(pool, (list, tuple)):
             # For now, just assume that the elements are strings.
             str_list = ", ".join(pool)
             _collector_init(self, self._handle, str_list, token)

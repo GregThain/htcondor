@@ -424,7 +424,6 @@ Matchmaker ()
 
 	negotiation_timerID = -1;
 	GotRescheduleCmd=false;
-	job_attr_references = NULL;
 	
 	stashedAds = new AdHash(hashFunction);
 
@@ -507,8 +506,7 @@ Matchmaker::
 {
 	if (AccountantHost) free (AccountantHost);
 	AccountantHost = NULL;
-	if (job_attr_references) free (job_attr_references);
-	job_attr_references = NULL;
+	job_attr_references.clear();
 	delete rankCondStd;
 	delete rankCondPrioPreempt;
 	delete PreemptionReq;
@@ -529,9 +527,8 @@ Matchmaker::
 	if (stashedAds) delete stashedAds;
     if (strSlotConstraint) free(strSlotConstraint), strSlotConstraint = NULL;
 
-	int i;
-	for(i=0;i<MAX_NEGOTIATION_CYCLE_STATS;i++) {
-		delete negotiation_cycle_stats[i];
+	for (auto* stats : negotiation_cycle_stats) {
+		delete stats;
 	}
 
     if (NULL != hgq_root_group) delete hgq_root_group;
@@ -598,12 +595,6 @@ initialize (const char *neg_name)
 		(CommandHandlercpp) &Matchmaker::GET_PRIORITY_commandHandler,
 			"GET_PRIORITY_commandHandler", this, READ);
     daemonCore->Register_Command (GET_PRIORITY_ROLLUP, "GetPriorityRollup",
-		(CommandHandlercpp) &Matchmaker::GET_PRIORITY_ROLLUP_commandHandler,
-			"GET_PRIORITY_ROLLUP_commandHandler", this, READ);
-	// CRUFT: The original command int for GET_PRIORITY_ROLLUP conflicted
-	//   with DRAIN_JOBS. In 7.9.6, we assigned a new command int to
-	//   GET_PRIORITY_ROLLUP. Recognize the old int here for now...
-    daemonCore->Register_Command (GET_PRIORITY_ROLLUP_OLD, "GetPriorityRollup",
 		(CommandHandlercpp) &Matchmaker::GET_PRIORITY_ROLLUP_commandHandler,
 			"GET_PRIORITY_ROLLUP_commandHandler", this, READ);
     daemonCore->Register_Command (GET_RESLIST, "GetResList",
@@ -702,6 +693,17 @@ reinitialize ()
 		sockCache->resize(socket_cache_size);
 	} else {
 		sockCache = new SocketCache(socket_cache_size);
+	}
+
+	bool new_match_password = param_boolean("SEC_ENABLE_MATCH_PASSWORD_AUTHENTICATION", true);
+	if (new_match_password != MatchPasswordEnabled) {
+		IpVerify* ipv = daemonCore->getIpVerify();
+		if ( new_match_password ) {
+			ipv->PunchHole(CLIENT_PERM, SUBMIT_SIDE_MATCHSESSION_FQU);
+		} else {
+			ipv->FillHole( CLIENT_PERM, SUBMIT_SIDE_MATCHSESSION_FQU );
+		}
+		MatchPasswordEnabled = new_match_password;
 	}
 
 	// get PreemptionReq expression
@@ -901,6 +903,8 @@ reinitialize ()
 		slotWeightStr = strdup("Cpus");
 	}
 
+	force_my_slot_weight = param_boolean("FORCE_NEGOTIATOR_SLOT_WEIGHT", false);
+
 
 	// done
 	return TRUE;
@@ -909,7 +913,7 @@ reinitialize ()
 void
 Matchmaker::SetupMatchSecurity(std::vector<ClassAd *> &submitterAds)
 {
-	if (!param_boolean("SEC_ENABLE_MATCH_PASSWORD_AUTHENTICATION", true)) {
+	if (!MatchPasswordEnabled) {
 		return;
 	}
 	dprintf(D_SECURITY, "Will look for match security sessions.\n");
@@ -1409,11 +1413,12 @@ QUERY_ADS_commandHandler (int cmd, Stream *strm)
 }
 
 
-char *
+void
 Matchmaker::
-compute_significant_attrs(std::vector<ClassAd *> & startdAds)
+compute_significant_attrs(std::vector<ClassAd *> & startdAds, std::string & sig_attrs)
 {
-	char *result = NULL;
+	dprintf(D_FULLDEBUG,"Entering compute_significant_attrs()\n");
+	sig_attrs.clear();
 
 	// Figure out list of all external attribute references in all startd ads
 	//
@@ -1421,7 +1426,6 @@ compute_significant_attrs(std::vector<ClassAd *> & startdAds)
 	// base ClassAd method GetExternalReferences(), building up a merged
 	// set of full reference names and then call TrimReferenceNames()
 	// on that.
-	dprintf(D_FULLDEBUG,"Entering compute_significant_attrs()\n");
 	ClassAd *sample_startd_ad = nullptr;
 	classad::References external_references;
 	for (ClassAd *startd_ad: startdAds) {
@@ -1446,8 +1450,10 @@ compute_significant_attrs(std::vector<ClassAd *> & startdAds)
 	// that are significant, we take a sample startd ad and add any startd_job_exprs
 	// to it.
 	if (!sample_startd_ad) {	// if no startd ads, just return.
-		return NULL;	// if no startd ads, there are no sig attrs
+		dprintf(D_FULLDEBUG,"Leaving compute_significant_attrs() no ads - result=(none)\n");
+		return; // if no startd ads, there are no sig attrs
 	}
+
 	//bool has_startd_job_attrs = false;
 	auto_free_ptr startd_job_attrs(param("STARTD_JOB_ATTRS"));
 	if ( ! startd_job_attrs.empty()) { // add in startd_job_attrs
@@ -1474,49 +1480,45 @@ compute_significant_attrs(std::vector<ClassAd *> & startdAds)
 		}
 	}
 
-	char *tmp=param("PREEMPTION_REQUIREMENTS");
+	auto_free_ptr tmp(param("PREEMPTION_REQUIREMENTS"));
 	if ( tmp && PreemptionReq ) {	// add references from preemption_requirements
 		const char* preempt_req_name = "preempt_req__";	// any name will do
-		sample_startd_ad->AssignExpr(preempt_req_name,tmp);
+		sample_startd_ad->AssignExpr(preempt_req_name,tmp.ptr());
 		ExprTree *expr = sample_startd_ad->Lookup(preempt_req_name);
 		if ( expr != NULL ) {
 			sample_startd_ad->GetExternalReferences(expr,external_references,true);
 		}
 	}
-	free(tmp);
 
-	tmp=param("PREEMPTION_RANK");
+	tmp.set(param("PREEMPTION_RANK"));
 	if ( tmp && PreemptionRank) {
 		const char* preempt_rank_name = "preempt_rank__";	// any name will do
-		sample_startd_ad->AssignExpr(preempt_rank_name,tmp);
+		sample_startd_ad->AssignExpr(preempt_rank_name,tmp.ptr());
 		ExprTree *expr = sample_startd_ad->Lookup(preempt_rank_name);
 		if ( expr != NULL ) {
 			sample_startd_ad->GetExternalReferences(expr,external_references,true);
 		}
 	}
-	free(tmp);
 
-	tmp=param("NEGOTIATOR_PRE_JOB_RANK");
+	tmp.set(param("NEGOTIATOR_PRE_JOB_RANK"));
 	if ( tmp && NegotiatorPreJobRank) {
 		const char* pre_job_rank_name = "pre_job_rank__";	// any name will do
-		sample_startd_ad->AssignExpr(pre_job_rank_name,tmp);
+		sample_startd_ad->AssignExpr(pre_job_rank_name,tmp.ptr());
 		ExprTree *expr = sample_startd_ad->Lookup(pre_job_rank_name);
 		if ( expr != NULL ) {
 			sample_startd_ad->GetExternalReferences(expr,external_references,true);
 		}
 	}
-	free(tmp);
 
-	tmp=param("NEGOTIATOR_POST_JOB_RANK");
+	tmp.set(param("NEGOTIATOR_POST_JOB_RANK"));
 	if ( tmp && NegotiatorPostJobRank) {
 		const char* post_job_rank_name = "post_job_rank__";	// any name will do
-		sample_startd_ad->AssignExpr(post_job_rank_name,tmp);
+		sample_startd_ad->AssignExpr(post_job_rank_name,tmp.ptr());
 		ExprTree *expr = sample_startd_ad->Lookup(post_job_rank_name);
 		if ( expr != NULL ) {
 			sample_startd_ad->GetExternalReferences(expr,external_references,true);
 		}
 	}
-	free(tmp);
 
 
 	if (sample_startd_ad) {
@@ -1542,6 +1544,9 @@ compute_significant_attrs(std::vector<ClassAd *> & startdAds)
 		//    RemoteUserPrio - not needed since we negotiate per user
 		//    SubmittorPrio - not needed since we negotiate per user
 	external_references.erase(ATTR_CURRENT_TIME);
+	external_references.erase(ATTR_LAST_HEARD_FROM);
+	external_references.erase(ATTR_REMOTE_USER);
+	external_references.erase(ATTR_REMOTE_OWNER);
 	external_references.erase(ATTR_REMOTE_USER_PRIO);
 	external_references.erase(ATTR_REMOTE_USER_RESOURCES_IN_USE);
 	external_references.erase(ATTR_REMOTE_GROUP_RESOURCES_IN_USE);
@@ -1549,20 +1554,48 @@ compute_significant_attrs(std::vector<ClassAd *> & startdAds)
 	external_references.erase(ATTR_SUBMITTER_USER_PRIO);
 	external_references.erase(ATTR_SUBMITTER_USER_RESOURCES_IN_USE);
 	external_references.erase(ATTR_SUBMITTER_GROUP_RESOURCES_IN_USE);
+	external_references.erase(ATTR_TOTAL_JOB_RUN_TIME); // default PREEMPTION_RANK refs this, but it is not a job attribute
+	external_references.erase(ATTR_MACHINE_LAST_MATCH_TIME); // default Unhibernate refs this
+	external_references.erase(ATTR_JOB_CURRENT_START_DATE); // set by schedd when a shadow is launched, (so it changes after match is given)
+	external_references.erase(ATTR_JOB_STATE); // set by the starter, (do not confuse with JOB_STATUS), it is a string, not an integer.
 
-	classad::References::iterator it;
-	std::string list_str;
-	for ( it = external_references.begin(); it != external_references.end(); it++ ) {
-		if ( !list_str.empty() ) {
-			list_str += ',';
+		// also ban known startd attribututes that may not be  present in all slots, and so give false positives
+	external_references.erase(ATTR_MIPS);
+	external_references.erase(ATTR_KFLOPS);
+	external_references.erase(ATTR_SLOT_ID);
+	external_references.erase(ATTR_DSLOT_ID);
+	external_references.erase(ATTR_SLOT_PARTITIONABLE);
+	external_references.erase(ATTR_SLOT_DYNAMIC);
+	external_references.erase(ATTR_OFFLINE);
+	external_references.erase("PelicanPluginVersion");
+
+	// remove the attributes banned by config
+	auto_free_ptr remove_attrs(param("REMOVE_SIGNIFICANT_ATTRIBUTES"));
+	if (remove_attrs) {
+		for (const auto & attr : StringTokenIterator(remove_attrs)) {
+			external_references.erase(attr);
 		}
-		list_str += *it;
 	}
 
-	result = strdup( list_str.c_str() );
-	dprintf(D_FULLDEBUG,"Leaving compute_significant_attrs() - result=%s\n",
-					result ? result : "(none)" );
-	return result;
+	// init the banned attributes pattern (default is "^Slot[0-9]*_")
+	// we will use this regex while building the sig_attrs string
+	Regex remove_attrs_re;
+	remove_attrs.set(param("REMOVE_SIGNIFICANT_ATTRIBUTES_REGEX"));
+	if (remove_attrs) {
+		int errnumber = 0, erroffset = 0;
+		if ( ! remove_attrs_re.compile(remove_attrs.ptr(), &errnumber, &erroffset, PCRE2_CASELESS)) {
+			dprintf(D_ERROR, "Could not compile REMOVE_SIGNIFICANT_ATTRIBUTES_REGEX, error %d at pos %d\n", errnumber, erroffset);
+		}
+	}
+
+	for (const auto & attr : external_references) {
+		if (remove_attrs_re.isInitialized() && remove_attrs_re.match(attr)) continue;
+		if ( ! sig_attrs.empty()) { sig_attrs += ','; }
+		sig_attrs += attr;
+	}
+
+	const char * result = sig_attrs.empty() ? "(none)" : sig_attrs.c_str();
+	dprintf(D_STATUS,"Leaving compute_significant_attrs() - result=%s\n", result);
 }
 
 
@@ -1747,10 +1780,7 @@ Matchmaker::negotiationTime( int /* timerID */ )
     negotiation_cycle_stats[0]->duration_phase1 += start_time_phase2 - start_time_phase1;
 	negotiation_cycle_stats[0]->phase1_cpu_time += start_usage_phase2 - start_usage_phase1;
 
-	if ( job_attr_references ) {
-		free(job_attr_references);
-	}
-	job_attr_references = compute_significant_attrs(startdAds);
+	compute_significant_attrs(startdAds, job_attr_references);
 
 	// ----- Recalculate priorities for schedds
 	accountant.UpdatePriorities();
@@ -1953,10 +1983,8 @@ Matchmaker::forwardAccountingData(std::set<std::string> &names) {
 	
 		dprintf(D_FULLDEBUG, "Updating collector with accounting information\n");
 			// for all of the names of active submitters
-		for (it = names.begin(); it != names.end(); it++) {
-			std::string name = *it;
-			std::string key("Customer.");  // hashkey is "Customer" followed by name
-			key += name;
+		for (const auto& name : names) {
+			std::string key = "Customer." + name;  // hashkey is "Customer" followed by name
 
 			ClassAd *accountingAd = accountant.GetClassAd(key);
 			if (accountingAd) {
@@ -2087,8 +2115,8 @@ Matchmaker::forwardGroupAccounting(GroupEntry* group) {
 	daemonCore->sendUpdates(UPDATE_ACCOUNTING_AD, &accountingAd, nullptr, true);
 
     // Populate group's children recursively, if it has any
-    for (std::vector<GroupEntry*>::iterator j(group->children.begin());  j != group->children.end();  ++j) {
-        forwardGroupAccounting(*j);
+    for (GroupEntry* child : group->children) {
+        forwardGroupAccounting(child);
     }
 }
 
@@ -2941,7 +2969,7 @@ obtainAdsFromCollector (
     //
 #if 1
 	CondorQuery publicQuery(QUERY_MULTIPLE_PVT_ADS);
-	publicQuery.addExtraAttribute(ATTR_SEND_PRIVATE_ATTRIBUTES, "true");
+	publicQuery.requestPrivateAttrs();
 
 	if (!m_SubmitterConstraintStr.empty()) {
 		publicQuery.addORConstraint(m_SubmitterConstraintStr.c_str());
@@ -2980,8 +3008,8 @@ obtainAdsFromCollector (
         publicQuery.addORConstraint(slot_ad_constraint);
     }
 
-	privateQuery.addExtraAttribute(ATTR_SEND_PRIVATE_ATTRIBUTES, "true");
-	publicQuery.addExtraAttribute(ATTR_SEND_PRIVATE_ATTRIBUTES, "true");
+	privateQuery.requestPrivateAttrs();
+	publicQuery.requestPrivateAttrs();
 
 	// If preemption is disabled, we only need a handful of attrs from claimed ads.
 	// Ask for that projection.
@@ -3171,7 +3199,7 @@ obtainAdsFromCollector (
 
 			// If startd didn't set a slot weight expression, add in our own
 			double slot_weight;
-			if (!ad->LookupFloat(ATTR_SLOT_WEIGHT, slot_weight)) {
+			if (force_my_slot_weight || ! ad->LookupFloat(ATTR_SLOT_WEIGHT, slot_weight)) {
 				ad->AssignExpr(ATTR_SLOT_WEIGHT, slotWeightStr);
 			}
 
@@ -3859,7 +3887,7 @@ Matchmaker::startNegotiateProtocol(const std::string &submitter, const ClassAd &
 			                        m_JobConstraintStr.c_str());
 		}
 		// Tell the schedd what sigificant attributes we found in the startd ads
-		negotiate_ad.InsertAttr(ATTR_AUTO_CLUSTER_ATTRS, job_attr_references ? job_attr_references : "");
+		negotiate_ad.InsertAttr(ATTR_AUTO_CLUSTER_ATTRS, job_attr_references);
 		// Tell the schedd a submitter tag value (used for flocking levels)
 		negotiate_ad.InsertAttr(ATTR_SUBMITTER_TAG, submitter_tag.c_str());
 
