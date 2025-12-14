@@ -186,7 +186,7 @@ jobs:
                for name in platform:
                  alltests.add(name)
 
-            # Print out a line for each test
+             # Print out a line for each test
              for test in sorted(alltests):
                line = f"| {test} |"
                for platform in results.keys():
