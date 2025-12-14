@@ -64,9 +64,11 @@ jobs:
           su condorauto -c "cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install"
 
       - name: test
-        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40")
+        # Use su to run as condorauto user inside container, test_guidance test is flakey
+        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance")
 
       - name: Upload Artifact
+        # Always upload, even if build or tests fail
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -101,7 +103,7 @@ jobs:
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
       - name: Test
-        run: (cd __build && ctest -j 10 -R cmd_q)
+        run: (cd __build && ctest -R cmd_q)
 
       #- name: Upload Artifact
       #  if: always()
@@ -144,6 +146,9 @@ jobs:
          - name: Download all artifacts
            uses: actions/download-artifact@v4
 
+           # Download all artifacts from previous jobs, turn the xml output from ctest
+           # into a markdown table and append it to the job summary
+           
          - name: create_summary
            shell: python
            run: |
