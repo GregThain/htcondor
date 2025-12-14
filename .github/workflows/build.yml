@@ -160,6 +160,7 @@ jobs:
 
              results = defaultdict(dict)
 
+             # Parse all test.xml files from downloaded artifacts into the results dict
              for dir in Path(".").iterdir():
                test_xml = dir / 'test.xml'
                for elem in ET.parse(test_xml).getroot().findall("testcase"):
@@ -183,7 +184,8 @@ jobs:
                for name in platform:
                  alltests.add(name)
 
-             for test in alltests:
+            # Print out a line for each test
+             for test in sorted(alltests):
                line = f"| {test} |"
                for platform in results.keys():
                  if test in results[platform]:
