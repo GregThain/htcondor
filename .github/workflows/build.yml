@@ -1,6 +1,5 @@
 name: Build and Test HTCondor
 
-
 on:
   push:
     branches: [ "main", "gha-actions-test" ]
