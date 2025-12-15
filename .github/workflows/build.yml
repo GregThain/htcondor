@@ -91,7 +91,7 @@ jobs:
 
       - name: test
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance" )
+        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance & wait" )
 
       - name: dmesg
         if: failure()
