@@ -65,7 +65,11 @@ jobs:
 
       - name: test
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance" ; dmesg)
+        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance" )
+
+      - name: dmesg
+        if: failure()
+        run: dmesg 
 
       - name: Upload Artifact
         # Always upload, even if build or tests fail
