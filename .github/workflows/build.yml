@@ -99,7 +99,7 @@ jobs:
         with:
           name: test-output-for-${{ matrix.instance.abbrev }}
           path: __build/
-          retention-days: 1
+          retention-days: 2
           overwrite: true
 
       - name: Upload Artifact
