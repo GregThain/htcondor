@@ -93,6 +93,9 @@ jobs:
         # Use su to run as condorauto user inside container, test_guidance test is flakey
         run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance & wait" )
 
+      - name: memory usage
+        run: ( c=$(/proc/self/cgroup) ; cat /sys/fs/cgroup/$c/memory.max_usage_in_bytes )
+
       - name: Upload All on Failure
         if: failure()
         uses: actions/upload-artifact@v4
