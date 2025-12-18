@@ -18,7 +18,7 @@ jobs:
         {"img": "ubuntu-latest", "abbrev": "x86-OS15", "container": "htcondor/nmi-build:x86_64_openSUSE15-25050000"},
         {"img": "ubuntu-latest", "abbrev": "x86-U22", "container": "htcondor/nmi-build:x86_64_Ubuntu22-25050000"},
         {"img": "ubuntu-latest", "abbrev": "x86-U24", "container": "htcondor/nmi-build:x86_64_Ubuntu24-25050000"},
-        {"img": "ubuntu-latest", "abbrev": "x86-F41", "container": "htcondor/nmi-build:x86_64_Fedora43-25050000"},
+        {"img": "ubuntu-latest", "abbrev": "x86-F42", "container": "htcondor/nmi-build:x86_64_Fedora42-25050000"},
         {"img": "ubuntu-24.04-arm", "abbrev": "arm-AL8", "container": "htcondor/nmi-build:aarch64_AlmaLinux8-25050000"},
         {"img": "ubuntu-24.04-arm", "abbrev": "arm-AL9", "container": "htcondor/nmi-build:aarch64_AlmaLinux9-25050000"},
         {"img": "ubuntu-24.04-arm", "abbrev": "arm-U24", "container": "htcondor/nmi-build:aarch64_Ubuntu24-25050000"},
