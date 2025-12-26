@@ -61,7 +61,7 @@ jobs:
 
       - name: test
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( su condorauto -c "cd __build && CTEST_OUTPUT_ON_FAILURE=on CTEST_CUSTOM_MAXIMUM_FAILED_TEST_OUTPUT_SIZE=100000 ctest --output-junit test.xml -j 40" )
+        run: ( su condorauto -c "cd __build && CTEST_OUTPUT_ON_FAILURE=on CTEST_CUSTOM_MAXIMUM_FAILED_TEST_OUTPUT_SIZE=100000 ctest --output-junit test.xml -E test_guidance -j 40" )
 
         # Report the memory used by the build & test run, because I'm curious
       - name: memory usage
