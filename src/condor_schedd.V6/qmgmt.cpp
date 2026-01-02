@@ -27,6 +27,7 @@
 
 #include "basename.h"
 #include "qmgmt.h"
+#include "qmgmt_startup_limits.h"
 #include "condor_qmgr.h"
 #include "classad_collection.h"
 #include "prio_rec.h"
@@ -56,7 +57,12 @@
 #include "jobsets.h"
 #include "exit.h"
 #include "credmon_interface.h"
+#include <memory>
 #include <algorithm>
+#include <vector>
+#include <deque>
+#include <unordered_map>
+#include <unordered_set>
 #include <math.h>
 #include <param_info.h>
 #include <shortfile.h>
@@ -5558,14 +5564,14 @@ SetAttribute(int cluster_id, int proc_id, const char *attr_name,
 			std::string raw_attribute = attr_name;
 			raw_attribute += "_RAW";
 			JobQueue->SetAttribute(key, raw_attribute.c_str(), attr_value, flags & SetAttribute_SetDirty);
-			if( flags & SHOULDLOG ) {
+			if( (flags & SHOULDLOG) && job) {
 				char* old_val = nullptr;
 				ExprTree *ltree = nullptr;
 				ltree = job->LookupExpr(raw_attribute);
 				if( ltree ) {
 					old_val = const_cast<char*>(ExprTreeToString(ltree));
 				}
-				scheduler.WriteAttrChangeToUserLog(key.c_str(), raw_attribute.c_str(), attr_value, old_val);
+				scheduler.WriteAttrChangeToUserLog(job, raw_attribute.c_str(), attr_value, old_val);
 			}
 
 			int64_t lvalue = 0;
@@ -5673,13 +5679,11 @@ SetAttribute(int cluster_id, int proc_id, const char *attr_name,
 	}
 
 	JobQueue->SetAttribute(key, attr_name, attr_value, flags & SetAttribute_SetDirty);
-	if( flags & SHOULDLOG ) {
+	if( (flags & SHOULDLOG) && job ) {
 		const char* old_val = nullptr;
-		if (job) {
-			ExprTree *tree = job->LookupExpr(attr_name);
-			if (tree) { old_val = ExprTreeToString(tree); }
-		}
-		scheduler.WriteAttrChangeToUserLog(key.c_str(), attr_name, attr_value, old_val);
+		ExprTree *tree = job->LookupExpr(attr_name);
+		if (tree) { old_val = ExprTreeToString(tree); }
+		scheduler.WriteAttrChangeToUserLog(job, attr_name, attr_value, old_val);
 	}
 
 	if( flags & NONDURABLE ) {
@@ -9303,7 +9307,7 @@ int mark_idle(JobQueueJob *job, const JobQueueKey& /*key*/, void* /*pvArg*/)
 		}
 		dprintf( D_FULLDEBUG, "Job %d.%d was left marked as removed, "
 				 "cleaning up now\n", cluster, proc );
-		scheduler.WriteAbortToUserLog( job_id );
+		scheduler.WriteAbortToUserLog(job);
 		DestroyProc( cluster, proc );
 	}
 	else if ( status == SUSPENDED || status == RUNNING || status == TRANSFERRING_OUTPUT || hosts > 0 ) {
@@ -9797,10 +9801,19 @@ bool UniverseUsesVanillaStartExpr(int universe)
  * any user; o.w. only get jobs for specified user.
  * If pool is non-empty, check whether jobs can flock there
  */
-void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad, const char * user, const char* pool, bool is_ocu)
+void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad, const char * user, const char* pool, bool is_ocu, bool is_new_match)
 {
 	JobQueueJob *job = nullptr;
 	runnable_reason_code runnable_code;
+	std::unordered_set<std::string> blocked_limits;
+
+	if (!StartupLimitsEmpty()) {
+		std::string slotname = "<none>";
+		if (my_match_ad) { my_match_ad->LookupString(ATTR_NAME, slotname); }
+		dprintf(D_FULLDEBUG,
+			"StartupLimit scan begin match for user=%s pool=%s slot=%s new_match=%d\n",
+			user ? user : "<any>", pool ? pool : "<none>", slotname.c_str(), (int)is_new_match);
+	}
 
 	// indicate failure by setting proc to -1.  do this now
 	// so if we bail out early anywhere, we say we failed.
@@ -9982,6 +9995,23 @@ void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad, const char * user, c
 				continue;
 			}
 
+			if (!StartupLimitsEmpty()) {
+				// External startup limits: deny starting if rate is exceeded
+				if (!StartupLimitsAllowJob(job, my_match_ad, user, pool, &blocked_limits)) {
+					if (!blocked_limits.empty()) {
+						dprintf(D_FULLDEBUG | D_MATCH,
+							"StartupLimit denied job %d.%d user=%s pool=%s blocked=%zu\n",
+							job->jid.cluster, job->jid.proc, job->ownerinfo->Name(), pool ? pool : "<none>", blocked_limits.size());
+					}
+					continue;
+				} else if (!blocked_limits.empty()) {
+					dprintf(D_FULLDEBUG | D_MATCH,
+						"StartupLimit allowed job %d.%d user=%s pool=%s after prior blocks=%zu\n",
+						job->jid.cluster, job->jid.proc, job->ownerinfo->Name(), pool ? pool : "<none>", blocked_limits.size());
+					blocked_limits.clear();
+				}
+			}
+
 				// Now check of the job can be started - this checks various schedd limits
 				// as embodied by the START_VANILLA_UNIVERSE expression.
 #ifdef USE_VANILLA_START
@@ -10077,6 +10107,11 @@ void FindRunnableJob(PROC_ID & jobid, ClassAd* my_match_ad, const char * user, c
 		PrioRecAutoClusterRejected.clear();
 
 	} while( rebuilt_prio_rec_array );
+
+	// No runnable job found for this match; record ignores only for new matches
+	if (is_new_match && !blocked_limits.empty()) {
+		StartupLimitsRecordIgnoredMatches(blocked_limits, user, pool);
+	}
 
 	// no more jobs to run anywhere.  nothing more to do.  failure.
 }
