@@ -191,7 +191,7 @@ jobs:
           sudo apt install -y cmake python3-pytest
 
           # Dunno why but we need to copy them to current dir to install
-          sudo cp __w/htcondor/htcondor/condor_*.deb __w/htcondor/htcondor/mini*.deb usr/local/condor/externals/pelican*.deb .
+          sudo cp __w/htcondor/htcondor/condor_*.deb __w/htcondor/htcondor/condor-test_*.dev __w/htcondor/htcondor/mini*.deb usr/local/condor/externals/pelican*.deb .
           sudo apt install -y ./*.deb
 
       - name: ctest
