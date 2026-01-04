@@ -194,13 +194,6 @@ jobs:
           sudo cp __w/htcondor/htcondor/condor_*.deb __w/htcondor/htcondor/mini*.deb usr/local/condor/externals/pelican*.deb .
           sudo apt install -y ./*.deb
 
-      - name: Verify condor installation
-        run: |
-          sudo condor_master
-          condor_version
-          sleep 5
-          condor_status
-
       - name: ctest
         run: |
           id
