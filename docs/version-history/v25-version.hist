@@ -35,6 +35,15 @@
   DAGMan rescue file by name for state restoration.
   :jira:`3425`
 
+- By default, HTCondor will now send extra information to "multi-file" file
+  transfer plug-ins if such is specified in the job.  All such plug-ins
+  should safely ignore this extra information.  To ease the transition if a
+  plug-in does not, the extra information may be disabled by unsetting
+  :macro:`ASSUME_COMPATIBLE_MULTIFILE_PLUGINS` on the relevant EPs.
+  [FIXME: link to protocol version definitions.]
+  [FIXME: document the job ad attributes at this time as well?]
+  :jira:`3357`
+
 *** 25.6.0 bugs
 
 - Fixed a bug when STARTER_NESTED_SCRATCH was true that broke the
@@ -54,13 +63,10 @@
   the job.
   :jira:`3467`
 
-- Fixed a bug where docker universe jobs would bring back a
-  file named ``.docker_stderror`` back to the AP after job completion.
-  :jira:`3424`
-
 - Fixed a bug in the handling of :subcom:`retry_request_memory` where a
   list of values using a scale such as ``GB`` would generate an error
   or fail quietly if the ``B`` was not present.
+  :jira:`3458`
 
 - Fixed an intermittent bug where the *condor_shadow* would occasionally
   get stuck for 20 minutes trying to reconnect to a non-existent *condor_starter*
@@ -74,20 +80,7 @@
 
 *** 25.0.6 bugs
 
-- Changed :tool:`condor_history` so that when it prints jobs in ``-long`` format
-  it prints them with attributes sorted alphabetically like :tool:`condor_q` does.
-  :jira:`3481`
-
 *** 25.5.1 features
-
-- By default, HTCondor will now send extra information to "multi-file" file
-  transfer plug-ins if such is specified in the job.  All such plug-ins
-  should safely ignore this extra information.  To ease the transition if a
-  plug-in does not, the extra information may be disabled by unsetting
-  :macro:`ASSUME_COMPATIBLE_MULTIFILE_PLUGINS` on the relevant EPs.
-  [FIXME: link to protocol version definitions.]
-  [FIXME: document the job ad attributes at this time as well?]
-  :jira:`3357`
 
 - A new configuration variable :macro:`FORCE_NEGOTIATOR_SLOT_WEIGHT` allows
   an administrator to configure the *condor_negotiator* so it uses its
