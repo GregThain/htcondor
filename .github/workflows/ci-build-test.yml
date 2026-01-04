@@ -186,6 +186,10 @@ jobs:
       - name: Install HTCondor from .debs
         run: |
           sudo apt update
+
+          # Dependences of the test framework 
+          sudo apt install -y cmake python3-pytest
+
           # Dunno why but we need to copy them to current dir to install
           sudo cp __w/htcondor/htcondor/condor_*.deb __w/htcondor/htcondor/mini*.deb usr/local/condor/externals/pelican*.deb .
           sudo apt install -y ./*.deb
@@ -196,6 +200,24 @@ jobs:
           condor_version
           sleep 5
           condor_status
+
+      - name: ctest
+        run: |
+          id
+          # Where the test output will go
+          mkdir /tmp/tests
+
+          # The source of the tests
+          mkdir -p /tmp/src
+
+          # Extract the tests sources into /tmp/src/condor_tests
+          tar --strip-components=1 -C /tmp/src -xzf /usr/lib/condor/condor_tests*.tar.gz
+
+          # Ugh.  Still need to copy these helpers
+          cp /tmp/src/condor_tests/Condor*.pm /tmp/tests/src/condor_tests
+          cp /tmp/src/condor_tests/run_test.pl /tmp/tests/src/condor_tests
+
+          python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr 
 
   dashboard:
     needs: [build, macbuild, winbuild]
