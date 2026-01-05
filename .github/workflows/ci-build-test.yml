@@ -148,7 +148,7 @@ jobs:
       - name: build
         run: (cmake --build . --verbose --config Release --parallel 4)
 
-  ubuntunative:
+  ubuntunativebuild:
     runs-on: ubuntu-latest
 
     # Use htcondor build containers for the real work
@@ -176,7 +176,7 @@ jobs:
           overwrite: true
 
   ubuntuinstall:
-    needs: ubuntunative
+    needs: ubuntunativebuild
     runs-on: ubuntu-latest
     steps:
       - name: Download .debs
@@ -212,6 +212,16 @@ jobs:
           cp /tmp/src/condor_tests/run_test.pl /tmp/tests/src/condor_tests
 
           python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py"
+
+      - name: Upload native tests reults
+        # Always upload, even if build or tests fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-test-output
+          path: /tmp/tests
+          retention-days: 1
+          overwrite: true
 
   dashboard:
     needs: [build, macbuild, winbuild]
