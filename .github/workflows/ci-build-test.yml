@@ -215,9 +215,9 @@ jobs:
           # change the hardcoded path in ctest to point to new places
           sed -e 's/[-"\/a-zA-Z0-9_\.]*ctest_driver.py"/src\/condor_tests\/ctest_driver.py /' -i /tmp/tests/src/condor_tests/CTestTestfile.cmake
 
-          sed -e 's/"--working-dir" "[^"]*"/--working-dir \/tmp\/tests /i' -i CTestTestfile.cmake
+          sed -e 's/"--working-dir" "[^"]*"/--working-dir \/tmp\/tests /i' -i /tmp/tests/src/CTestTestfile.cmake
 
-          sed -e 's/"--prefix-path" "[^"]*"/--prefix-path \/usr /' -i CTestTestfile.cmake
+          sed -e 's/"--prefix-path" "[^"]*"/--prefix-path \/usr /' -i /tmp/tests/src/CTestTestfile.cmake
 
           cat  /tmp/tests/src/condor_tests/CTestTestfile.cmake
 
