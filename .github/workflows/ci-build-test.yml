@@ -222,7 +222,10 @@ jobs:
 
           sed -e 's/"--prefix-path" "[^"]*"/--prefix-path \/usr /' -i /tmp/tests/src/condor_tests/CTestTestfile.cmake
 
+          sed -e 's/--prefix-path/--extra-config LIBEXEC=\/usr\/libexec\/condor --prefix-path/' -i /tmp/tests/src/condor_tests/CTestTestfile.cmake
+
           # cd /tmp/tests && python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py" --extra-config "LIBEXEC=/usr/libexec/condor"
+
           cd /tmp/tests/src/condor_tests && ctest -R test_job_env
 
       - name: Upload native tests reults
