@@ -207,11 +207,11 @@ jobs:
           tar --strip-components=1 -C /tmp/src -xzf /usr/lib/condor/condor_tests*.tar.gz
 
           # Ugh.  Still need to copy these helpers
-          cp /tmp/src/condor_tests/Condor*.pm /tmp/tests/src/condor_tests
-          cp /tmp/src/condor_tests/run_test.pl /tmp/tests/src/condor_tests
-          cp /tmp/src/condor_tests/ctest_driver.py /tmp/tests/src/condor_tests
-
-          cp  /tmp/src/condor_tests/CTestTestfile.cmake /tmp/tests/src/condor_tests
+          #cp /tmp/src/condor_tests/Condor*.pm /tmp/tests/src/condor_tests
+          #cp /tmp/src/condor_tests/run_test.pl /tmp/tests/src/condor_tests
+          #cp /tmp/src/condor_tests/ctest_driver.py /tmp/tests/src/condor_tests
+          #cp  /tmp/src/condor_tests/CTestTestfile.cmake /tmp/tests/src/condor_tests
+          cp  -p /tmp/src/condor_tests/* /tmp/tests/src/condor_tests
 
           # change the hardcoded path in ctest to point to the new places
           sed -e 's/[-"\/a-zA-Z0-9_\.]*ctest_driver.py"/ctest_driver.py /' -i /tmp/tests/src/condor_tests/CTestTestfile.cmake
