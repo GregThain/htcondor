@@ -198,7 +198,7 @@ jobs:
         run: |
           id
           # Where the test output will go
-          mkdir /tmp/tests
+          mkdir -p /tmp/tests/src/condor_tests
 
           # The source of the tests
           mkdir -p /tmp/src
