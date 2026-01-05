@@ -212,16 +212,15 @@ jobs:
 
           cp  /tmp/src/condor_tests/CTestTestfile.cmake /tmp/tests/src/condor_tests
 
-          # change the hardcoded path in ctest to point to new places
+          # change the hardcoded path in ctest to point to the new places
           sed -e 's/[-"\/a-zA-Z0-9_\.]*ctest_driver.py"/src\/condor_tests\/ctest_driver.py /' -i /tmp/tests/src/condor_tests/CTestTestfile.cmake
 
           sed -e 's/"--working-dir" "[^"]*"/--working-dir \/tmp\/tests /i' -i /tmp/tests/src/condor_tests/CTestTestfile.cmake
 
           sed -e 's/"--prefix-path" "[^"]*"/--prefix-path \/usr /' -i /tmp/tests/src/condor_tests/CTestTestfile.cmake
 
-          cat  /tmp/tests/src/condor_tests/CTestTestfile.cmake
-
-          cd /tmp/tests && python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py" --extra-config "LIBEXEC=/usr/libexec/condor"
+          # cd /tmp/tests && python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py" --extra-config "LIBEXEC=/usr/libexec/condor"
+          cd /tmp/tests && ctest -R test_job_env
 
       - name: Upload native tests reults
         # Always upload, even if build or tests fail
