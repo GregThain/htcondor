@@ -209,6 +209,7 @@ jobs:
           # Ugh.  Still need to copy these helpers
           cp /tmp/src/condor_tests/Condor*.pm /tmp/tests/src/condor_tests
           cp /tmp/src/condor_tests/run_test.pl /tmp/tests/src/condor_tests
+          cp /tmp/src/condor_tests/ctest_driver.py /tmp/tests/src/condor_tests
 
           cp  /tmp/src/condor_tests/CTestTestfile.cmake /tmp/tests/src/condor_tests
 
