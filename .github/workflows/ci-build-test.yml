@@ -211,7 +211,7 @@ jobs:
           cp /tmp/src/condor_tests/Condor*.pm /tmp/tests/src/condor_tests
           cp /tmp/src/condor_tests/run_test.pl /tmp/tests/src/condor_tests
 
-          python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py --extra-config "LIBEXEC=/usr/libexec/condor""
+          python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py" --extra-config "LIBEXEC=/usr/libexec/condor"
 
       - name: Upload native tests reults
         # Always upload, even if build or tests fail
