@@ -208,8 +208,7 @@ jobs:
           tar --strip-components=1 -C /tmp/src -xzf /usr/lib/condor/condor_tests*.tar.gz
 
           # Ugh.  Still need to copy these helpers
-          cp /tmp/src/condor_tests/Condor*.pm /tmp/tests/src/condor_tests
-          cp /tmp/src/condor_tests/run_test.pl /tmp/tests/src/condor_tests
+          cp -pr /tmp/src/condor_tests/* /tmp/tests/src/condor_tests
 
           python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py" --extra-config "LIBEXEC=/usr/libexec/condor"
 
