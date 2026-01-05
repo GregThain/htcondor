@@ -79,14 +79,23 @@ def parse_args():
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "--extra-config",
+        help="Extra config options to append",
+        dest="extra_config",
+        default="",
+    )
 
     return parser.parse_args()
 
 
-def write_base_config(prefix_path, java=False):
+def write_base_config(prefix_path, java=False, extra_config=""):
     extra_args = ""
     if not java:
-        extra_args += "JAVA="
+        extra_args += "\nJAVA=\n"
+    if (len(extra_config) > 0):
+        extra_args += "\n"
+        extra_args += extra_config
     with open("condor_config.local", "w") as fp:
         pass
     os.umask(0o022)
@@ -195,7 +204,7 @@ def main():
     if add_to_path not in pythonpath:
         os.environ["PYTHONPATH"] = os.pathsep.join([".", add_to_path, pythonpath])
 
-    write_base_config(args.prefix_path, java=args.java)
+    write_base_config(args.prefix_path, java=args.java, extra_config=args.extra_config)
     # This is not re-generated each time.
     if os.path.exists("derived_condor_config"):
         os.unlink("derived_condor_config")
