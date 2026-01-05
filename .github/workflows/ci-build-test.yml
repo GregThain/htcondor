@@ -80,10 +80,11 @@ jobs:
       # processes are mutating files as upload tries to read them, which
       # breaks the upload. So we kill off condor processes first.
       - name: Kill off processes
+        if: always()
         run: |
           ps auxww | grep [Cc]ondor_ | awk '{print $2}' | xargs -r kill -9
 
-      - name: Upload All on Failure
+      - name: Upload full test output on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
