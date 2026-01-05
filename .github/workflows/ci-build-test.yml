@@ -226,7 +226,7 @@ jobs:
 
           # cd /tmp/tests && python3 /tmp/src/condor_tests/ctest_driver.py --test test_job_env --source-dir /tmp --working-dir /tmp/tests --prefix-path /usr --dependencies "src/condor_tests/ornithology;src/condor_tests/conftest.py" --extra-config "LIBEXEC=/usr/libexec/condor"
 
-          cd /tmp/tests/src/condor_tests && ctest -R test_job_env
+          cd /tmp/tests/src/condor_tests && ctest -j 40
 
       - name: Upload native tests reults
         # Always upload, even if build or tests fail
