@@ -101,8 +101,12 @@ class ClassAd : public ExprTree
 			@return true if the operation succeeded, false otherwise.
 			@see ExprTree::setParentScope
 		*/
-		bool Insert( const std::string& attrName, ExprTree* expr);   // (ignores cache)
+		bool Insert( const std::string& attrName, ExprTree* expr, bool unsafe=false);   // (ignores cache)
 		bool InsertLiteral(const std::string& attrName, Literal* lit); // (ignores cache)
+
+
+		bool AppendLiteralUnsafe(const std::string & name, Literal* lit);
+		bool InsertUnsafe( const std::string& attrName, ExprTree * tree );
 		/*
 			Swap() is just like Insert() except it returns the old exprtree rather than
 			deleting it.  If there was no old exprtree, the old_expr is set to nullptr
@@ -112,7 +116,7 @@ class ClassAd : public ExprTree
 
 		// insert through cache if cache is enabled, otherwise just parse and insert
 		// parsing of the rhs expression is done use old ClassAds syntax
-		bool InsertViaCache(const std::string& attrName, const std::string & rhs, bool lazy=false);
+		bool InsertViaCache(const std::string& attrName, const std::string & rhs, bool lazy=false, bool unsafe=false);
 
 		/** Insert an attribute/value into the ClassAd
 		 *  @param str A string of the form "Attribute = Value"
@@ -592,6 +596,7 @@ class ClassAd : public ExprTree
 		//@}
 
 		void rehash(size_t s) { attrList.rehash(s);}
+		void resort() { attrList.resort();}
 		iterator erase(iterator i) { 
 			return attrList.erase(i);
 		}

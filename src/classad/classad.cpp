@@ -434,7 +434,7 @@ bool ClassAd::Insert(const std::string& serialized_nvp);
 
 // Parse and insert an attribute value via cache if the cache is enabled
 //
-bool ClassAd::InsertViaCache(const std::string& name, const std::string & rhs, bool lazy /*=false*/)
+bool ClassAd::InsertViaCache(const std::string& name, const std::string & rhs, bool lazy /*=false*/, bool unsafe)
 {
 	if (name.empty()) return false;
 
@@ -451,11 +451,11 @@ bool ClassAd::InsertViaCache(const std::string& name, const std::string & rhs, b
 		CachedExprEnvelope * penv = CachedExprEnvelope::check_hit(name, rhs);
 		if (penv) {
 			tree = penv;
-			return Insert(name, tree);
+			return Insert(name, tree, unsafe);
 		}
 		if (lazy) {
 			tree = CachedExprEnvelope::cache_lazy(name, rhs);
-			return Insert(name, tree);
+			return Insert(name, tree, unsafe);
 		}
 	}
 
@@ -473,7 +473,7 @@ bool ClassAd::InsertViaCache(const std::string& name, const std::string & rhs, b
 	if (use_cache) {
 		tree = CachedExprEnvelope::cache(name, tree, rhs);
 	}
-	return Insert(name, tree);
+	return Insert(name, tree, unsafe);
 }
 
 bool
@@ -537,7 +537,7 @@ AssignExpr(const std::string &name, const char *value)
 	return true;
 }
 
-bool ClassAd::Insert( const std::string& attrName, ExprTree * tree )
+bool ClassAd::Insert( const std::string& attrName, ExprTree * tree, bool unsafe)
 {
 		// sanity checks
 	if( attrName.empty() ) {
@@ -554,6 +554,11 @@ bool ClassAd::Insert( const std::string& attrName, ExprTree * tree )
 	// parent of the expression is this classad
 	tree->SetParentScope( this );
 
+	if (unsafe) {
+		MarkAttributeDirty(attrName);
+		return InsertUnsafe(attrName, tree);
+	} 
+
 	auto [itr, inserted] = attrList.emplace(attrName, tree);
 	if (!inserted) {
 		// replace existing value
@@ -566,6 +571,10 @@ bool ClassAd::Insert( const std::string& attrName, ExprTree * tree )
 	return true;
 }
 
+bool ClassAd::InsertUnsafe( const std::string& attrName, ExprTree * tree ) {
+	attrList.append_unsafe(attrName, tree);
+	return true;
+}
 bool ClassAd::Swap(const std::string& attrName, ExprTree* tree, ExprTree* & old_tree)
 {
 	// sanity checks
@@ -614,6 +623,11 @@ bool ClassAd::InsertLiteral(const std::string & name, Literal* lit)
 	}
 
 	MarkAttributeDirty(name);
+	return true;
+}
+
+bool ClassAd::AppendLiteralUnsafe(const std::string & name, Literal* lit) {
+	attrList.append_unsafe(name, lit);
 	return true;
 }
 

@@ -278,31 +278,31 @@ bool getClassAdEx( Stream *sock, classad::ClassAd& ad, int options)
 		if (fast_tricks) {
 			char ch = rhs[0];
 			if (cbrhs == 5 && (ch&~0x20) == 'T' && (rhs[1]&~0x20) == 'R' && (rhs[2]&~0x20) == 'U' && (rhs[3]&~0x20) == 'E') {
-				inserted = ad.InsertLiteral(attr, classad::Literal::MakeBool(true));
+				inserted = ad.AppendLiteralUnsafe(attr, classad::Literal::MakeBool(true));
 				IF_PROFILE_GETCLASSAD(subtype = 1);
 			} else if (cbrhs == 6 && (ch&~0x20) == 'F' && (rhs[1]&~0x20) == 'A' && (rhs[2]&~0x20) == 'L' && (rhs[3]&~0x20) == 'S' && (rhs[4]&~0x20) == 'E') {
-				inserted = ad.InsertLiteral(attr, classad::Literal::MakeBool(false));
+				inserted = ad.AppendLiteralUnsafe(attr, classad::Literal::MakeBool(false));
 				IF_PROFILE_GETCLASSAD(subtype = 1);
 			} else if (cbrhs < 30 && (ch == '-' || (ch >= '0' && ch <= '9'))) {
 				if (strchr(rhs, '.')) {
 					char *pe = NULL;
 					double d = strtod(rhs, &pe);
 					if (*pe == 0 || *pe == '\r' || *pe == '\n') {
-						inserted = ad.InsertLiteral(attr, classad::Literal::MakeReal(d));
+						inserted = ad.AppendLiteralUnsafe(attr, classad::Literal::MakeReal(d));
 						IF_PROFILE_GETCLASSAD(subtype = 2);
 					}
 				} else {
 					const char * pe = NULL;
 					long long ll = myatoll(rhs, pe);
 					if (*pe == 0 || *pe == '\r' || *pe == '\n') {
-						inserted = ad.InsertLiteral(attr, classad::Literal::MakeInteger(ll));
+						inserted = ad.AppendLiteralUnsafe(attr, classad::Literal::MakeInteger(ll));
 						IF_PROFILE_GETCLASSAD(subtype = 2);
 					}
 				}
 			} else if (cbrhs < always_cache_string_size && ch == '"') { // 128 because we want long strings in the cache.
 				size_t cch = IsSimpleString(rhs);
 				if (cch) {
-					inserted = ad.InsertLiteral(attr, classad::Literal::MakeString(rhs+1, cch-2));
+					inserted = ad.AppendLiteralUnsafe(attr, classad::Literal::MakeString(rhs+1, cch-2));
 					IF_PROFILE_GETCLASSAD(subtype = 3);
 				}
 			}
@@ -323,16 +323,16 @@ bool getClassAdEx( Stream *sock, classad::ClassAd& ad, int options)
 			bool cache = use_cache && (*rhs != '[' && *rhs != '{');
 			if (cache) {
 				if (cache_lazy) {
-					inserted = ad.InsertViaCache(attr, rhs, true);
+					inserted = ad.InsertViaCache(attr, rhs, true, true);
 					IF_PROFILE_GETCLASSAD(getClassAdExCacheLazy_runtime.Add(rt.tick(rt_last)));
 				} else {
-					inserted = ad.InsertViaCache(attr, rhs, false);
+					inserted = ad.InsertViaCache(attr, rhs, false, true);
 					IF_PROFILE_GETCLASSAD(getClassAdExCache_runtime.Add(rt.tick(rt_last)));
 				}
 			} else {
 				ExprTree *tree = parser.ParseExpression(rhs);
 				if (tree) {
-					inserted = ad.Insert(attr, tree);
+					inserted = ad.InsertUnsafe(attr, tree);
 				}
 				IF_PROFILE_GETCLASSAD(getClassAdExParse_runtime.Add(rt.tick(rt_last)));
 			}
@@ -342,6 +342,7 @@ bool getClassAdEx( Stream *sock, classad::ClassAd& ad, int options)
 			return false;
 		}
 	}
+	ad.resort();
 
 	if (options & GET_CLASSAD_NO_TYPES) {
 		return true;

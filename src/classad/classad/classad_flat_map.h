@@ -174,6 +174,17 @@ class ClassAdFlatMap {
 			}
 		}
 
+		template <typename StringLike> 
+		void append_unsafe(const StringLike &key, ExprTree *value) {
+			_theVector.emplace_back(key, value);
+		}
+
+		void resort() {
+			std::ranges::sort(_theVector, ClassAdFlatMapOrder{}, &std::pair<std::string, ExprTree *>::first);
+		}
+		
+
+
 	private:
 		container _theVector;
 };
