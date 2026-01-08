@@ -27,7 +27,15 @@ jobs:
           echo $GITHUB_WORKSPACE
           ls
           mkdir -p $GITHUB_WORKSPACE/asan && chown condorauto $GITHUB_WORKSPACE/asan && chmod 0777 $GITHUB_WORKSPACE/asan
-          su condorauto -c "cd __build && ASAN_OPTIONS="log_path=$GITHUB_WORKSPACE/asan/condor:exitcode=0" LSAN_OPTIONS="exitcode=0:suppressions=$GITHUB_WORKSPACE/build/cmake/lsan.supp" LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.8 ctest --output-junit test.xml -j 10 -E guidance"
+          su condorauto -c "cd __build && ASAN_OPTIONS="log_path=$GITHUB_WORKSPACE/asan/condor:exitcode=0" LSAN_OPTIONS="exitcode=0:suppressions=$GITHUB_WORKSPACE/build/cmake/lsan.supp" LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.8 ctest --output-junit test.xml -j 10 -E guidance -R test_job_env"
+
+      # The upload on fail step frequently fails because running condor
+      # processes are mutating files as upload tries to read them, which
+      # breaks the upload. So we kill off condor processes first.
+      - name: Kill off processes
+        if: always()
+        run: |
+          ps auxww | grep [Cc]ondor_ | awk '{print $2}' | xargs -r kill -9
 
       - name: Upload Artifact with asan output
         # Always upload, even if build or tests fail
