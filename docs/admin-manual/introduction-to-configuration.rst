@@ -12,7 +12,7 @@ read the other configuration-related sections:
 -  The :ref:`admin-manual/introduction-to-configuration:configuration templates` section contains
    information about configuration templates, which are now the
    preferred way to set many configuration macros.
--  The :doc:`/admin-manual/configuration-macros` section contains
+-  The :doc:`/admin-manual/configuration/index` section contains
    information about the hundreds of individual configuration macros. In
    general, it is best to try to achieve your desired configuration
    using configuration templates before resorting to setting individual
@@ -694,7 +694,7 @@ character (!) to represent the not operation, followed by
    results in ``X = -1``, when ``MY_UNDEFINED_VARIABLE`` is not yet
    defined.
 
--  the version keyword, representing the version number of of the daemon
+-  the version keyword, representing the version number of the daemon
    or tool currently reading this conditional. This keyword is followed
    by an HTCondor version number. That version number can be of the form
    x.y.z or x.y. The version of the daemon or tool is compared to the
@@ -1123,17 +1123,16 @@ determined automatically at run time but which can be overwritten.
 
 ``$(FILESYSTEM_DOMAIN)`` :index:`FILESYSTEM_DOMAIN`
     Defaults to the fully qualified host name of the machine it is
-    evaluated on. See the :doc:`/admin-manual/configuration-macros` section, Shared File
+    evaluated on. See the :ref:`shared_fs_config_options` section, Shared File
     System Configuration File Entries for the full description of its
     use and under what conditions it could be desirable to change it.
 
 ``$(UID_DOMAIN)`` :index:`UID_DOMAIN`
     Defaults to the fully qualified host name of the machine it is
-    evaluated on. See the :doc:`/admin-manual/configuration-macros` section for the full
-    description of this configuration variable.
+    evaluated on. See the :macro:`UID_DOMAIN`.
 
 ``$(CONFIG_ROOT)`` :index:`CONFIG_ROOT`
-   Set to the directory where the the main config file will be read prior to reading any 
+   Set to the directory where the main config file will be read prior to reading any 
    config files. The value will usually be ``/etc/condor`` for an RPM install,
    ``C:\Condor`` for a Windows MSI install and the directory part of the ``CONDOR_CONFIG`` environment
    variable for a tarball install. This variable will not be set when ``CONDOR_CONFIG`` is
