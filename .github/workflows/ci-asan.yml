@@ -28,3 +28,13 @@ jobs:
           ls
           mkdir -p $GITHUB_WORKSPACE/asan && chown condorauto $GITHUB_WORKSPACE/asan && chmod 0777 $GITHUB_WORKSPACE/asan
           su condorauto -c "cd __build && ASAN_OPTIONS="log_path=$GITHUB_WORKSPACE/asan/condor:exitcode=0" LSAN_OPTIONS="exitcode=0:suppressions=$GITHUB_WORKSPACE/build/cmake/lsan.supp" LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.8 ctest --output-junit test.xml -j 8 -E guidance"
+
+      - name: Upload Artifact with asan output
+        # Always upload, even if build or tests fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asan-output
+          path: __build/asan
+          retention-days: 1
+          overwrite: true
