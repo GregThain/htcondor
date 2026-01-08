@@ -5116,6 +5116,16 @@ void DaemonCore::Send_Signal(classy_counted_ptr<DCSignalMsg> msg, bool nonblocki
 						 "Send_Signal(): Doing kill(%d,%d) [%s]\n",
 						 pid, sig, tmp ? tmp : "Unknown" );
 				priv_state priv = set_root_priv();
+				if (sig == SIGKILL) {
+					struct timespec ts;
+					clock_gettime(CLOCK_REALTIME, &ts);
+					FILE* log_file = fopen("sigkill_log.txt", "a");
+					if (log_file) {
+						fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+						        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+						fclose(log_file);
+					}
+				}
 				int status = ::kill(pid, sig);
 				set_priv(priv);
 				// return 1 if kill succeeds, 0 otherwise
@@ -5289,7 +5299,18 @@ int DaemonCore::Shutdown_Fast(pid_t pid, bool want_core )
 	}
 
 	priv_state priv = set_root_priv();
-	int status = kill(pid, want_core ? SIGABRT : SIGKILL );
+	int status;
+	if (!want_core) {
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		FILE* log_file = fopen("sigkill_log.txt", "a");
+		if (log_file) {
+			fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+			        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+			fclose(log_file);
+		}
+	}
+	status = kill(pid, want_core ? SIGABRT : SIGKILL );
 	set_priv(priv);
 	return (status >= 0);		// return 1 if kill succeeds, 0 otherwise
 #endif
@@ -8842,6 +8863,16 @@ DaemonCore::Kill_Thread(int tid)
 		return true;
 	}
 	priv_state priv = set_root_priv();
+	{
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		FILE* log_file = fopen("sigkill_log.txt", "a");
+		if (log_file) {
+			fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+			        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), tid);
+			fclose(log_file);
+		}
+	}
 	int status = kill(tid, SIGKILL);
 	set_priv(priv);
 	return (status >= 0);		// return 1 if kill succeeds, 0 otherwise

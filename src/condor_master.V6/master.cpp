@@ -535,6 +535,16 @@ void do_linux_kernel_tuning() {
 					sleep( 1 );
 				} else {
 					dprintf( D_FULLDEBUG, "Waited too long for kernel parameters to be tuned, hard-killing script.\n" );
+					{
+						struct timespec ts;
+						clock_gettime(CLOCK_REALTIME, &ts);
+						FILE* log_file = fopen("sigkill_log.txt", "a");
+						if (log_file) {
+							fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+							        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), childPID);
+							fclose(log_file);
+						}
+					}
 					kill( childPID, SIGKILL );
 					// Collect the zombie.
 					wait = waitpid( childPID, &status, WNOHANG );
@@ -543,6 +553,16 @@ void do_linux_kernel_tuning() {
 				}
 			} else {
 				dprintf( D_FULLDEBUG, "waitpid() failed while waiting for kernel tuning (%d).  Killing child %d.\n", errno, childPID );
+				{
+					struct timespec ts;
+					clock_gettime(CLOCK_REALTIME, &ts);
+					FILE* log_file = fopen("sigkill_log.txt", "a");
+					if (log_file) {
+						fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+						        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), childPID);
+						fclose(log_file);
+					}
+				}
 				kill( childPID, SIGKILL );
 				// Try again to collect the zombie?
 				waitpid( childPID, & status, WNOHANG );

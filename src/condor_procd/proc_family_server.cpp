@@ -272,6 +272,16 @@ void ProcFamilyServer::kill_family()
 	pid_t pid;
 	read_from_client(&pid, sizeof(pid_t));
 
+	{
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		FILE* log_file = fopen("sigkill_log.txt", "a");
+		if (log_file) {
+			fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d (via signal_family)\n",
+			        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+			fclose(log_file);
+		}
+	}
 	proc_family_error_t err = m_monitor.signal_family(pid, SIGKILL);
 
 	write_to_client(&err, sizeof(proc_family_error_t));

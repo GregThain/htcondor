@@ -54,6 +54,16 @@ send_signal(pid_t pid, int sig)
 		        sig);
 	}
 #else
+	if (sig == SIGKILL) {
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		FILE* log_file = fopen("sigkill_log.txt", "a");
+		if (log_file) {
+			fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+			        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+			fclose(log_file);
+		}
+	}
 	if (kill(pid, sig) == -1) {
 		dprintf(D_ALWAYS, "kill(%d, %d) error: %s (%d)\n",
 		        pid, sig, strerror(errno), errno);

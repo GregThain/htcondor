@@ -134,6 +134,16 @@ int cpuusage_test(bool verbose) {
   // end the short and relativly boring existance of the child process.
     // He'll be relieved trust me.  Would you like to just spin in a 
   // never ending loop.  Thought not.
+  {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    FILE* log_file = fopen("sigkill_log.txt", "a");
+    if (log_file) {
+      fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+              ts.tv_sec, ts.tv_nsec / 1000000, getpid(), child);
+      fclose(log_file);
+    }
+  }
   kill(child, SIGKILL);
   
   return success;

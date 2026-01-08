@@ -198,9 +198,31 @@ merciful_kill(pid_t pid, int kill_via_glexec,
 	{
 		if (kill_via_glexec)
 		{
+			{
+				struct timespec ts;
+				clock_gettime(CLOCK_REALTIME, &ts);
+				FILE* log_file = fopen("sigkill_log.txt", "a");
+				if (log_file) {
+					fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+					        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), -pid);
+					fclose(log_file);
+				}
+			}
 			glexec_kill_pid(-pid, SIGKILL, glexec_kill_cmd,	glexec_environment);
 		}
-		else kill_status = kill(-pid, SIGKILL);
+		else {
+			{
+				struct timespec ts;
+				clock_gettime(CLOCK_REALTIME, &ts);
+				FILE* log_file = fopen("sigkill_log.txt", "a");
+				if (log_file) {
+					fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+					        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), -pid);
+					fclose(log_file);
+				}
+			}
+			kill_status = kill(-pid, SIGKILL);
+		}
 
 		if (kill_status == 0)
 		{

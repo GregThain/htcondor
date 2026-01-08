@@ -195,8 +195,17 @@ void
 main_shutdown_fast()
 {
 #ifndef WIN32
-	if (io_loop_pid != -1)
+	if (io_loop_pid != -1) {
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		FILE* log_file = fopen("sigkill_log.txt", "a");
+		if (log_file) {
+			fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+			        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), io_loop_pid);
+			fclose(log_file);
+		}
 		kill(io_loop_pid, SIGKILL);
+	}
 #endif
 	DC_Exit(0);
 }

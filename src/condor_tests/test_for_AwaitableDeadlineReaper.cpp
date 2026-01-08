@@ -121,6 +121,16 @@ spawn_test03_subtest() {
 			ASSERT( WEXITSTATUS(status) == 1 );
 		} else if( c.contains(pid) ) {
 			ASSERT(timed_out);
+			{
+				struct timespec ts;
+				clock_gettime(CLOCK_REALTIME, &ts);
+				FILE* log_file = fopen("sigkill_log.txt", "a");
+				if (log_file) {
+					fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+					        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+					fclose(log_file);
+				}
+			}
 			kill( pid, SIGKILL );
 
 			c.erase(pid);
@@ -174,6 +184,16 @@ test_02() {
 		auto [the_pid, timed_out, status] = co_await( adr );
 		ASSERT(the_pid == pid);
 		ASSERT(timed_out);
+		{
+			struct timespec ts;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			FILE* log_file = fopen("sigkill_log.txt", "a");
+			if (log_file) {
+				fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+				        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+				fclose(log_file);
+			}
+		}
 		kill( pid, SIGKILL );
 	}
 

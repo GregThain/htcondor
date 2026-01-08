@@ -205,6 +205,16 @@ KillFamily::safe_kill(a_pid *pid, int sig)
 		}
 
 #else
+		if (sig == SIGKILL) {
+			struct timespec ts;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			FILE* log_file = fopen("sigkill_log.txt", "a");
+			if (log_file) {
+				fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+				        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), inpid);
+				fclose(log_file);
+			}
+		}
 		if ( kill(inpid,sig) < 0 ) {
 			dprintf(D_PROCFAMILY,
 				"KillFamily::safe_kill: kill(%d,%d) failed, errno=%d\n",

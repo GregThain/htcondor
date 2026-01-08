@@ -137,6 +137,16 @@ main( int argc, char ** argv ) {
 			next_size = 1;
 			int childPID = spawn_child( second_usage );
 			sleep( cycle_interval );
+			{
+				struct timespec ts;
+				clock_gettime(CLOCK_REALTIME, &ts);
+				FILE* log_file = fopen("sigkill_log.txt", "a");
+				if (log_file) {
+					fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+					        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), childPID);
+					fclose(log_file);
+				}
+			}
 			kill( childPID, SIGKILL );
 			continue;
 		}

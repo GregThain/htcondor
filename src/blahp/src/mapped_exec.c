@@ -135,9 +135,9 @@ merciful_kill(pid_t pid, exec_cmd_t *cmd)
 
 	if (tsl >= graceful_timeout && (waitpid(pid, &status, WNOHANG) == 0))
 	{
-		if (cmd->delegation_type == MEXEC_NO_MAPPING)
+		if (cmd->delegation_type == MEXEC_NO_MAPPING) {
 			kill_status = kill(-pid, SIGKILL);
-		else
+		} else
 		{
 			recycle_cmd(cmd);
 			/* Warning: execute_cmd requires a leading space in its arguments */

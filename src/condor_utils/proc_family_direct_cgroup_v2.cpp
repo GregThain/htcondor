@@ -74,6 +74,16 @@ signal_cgroup(const std::string &cgroup_name, int sig) {
 	while (fscanf(f, "%d", &victim_pid) != EOF) {
 		if (victim_pid != me) { // just in case
 			dprintf(D_FULLDEBUG, "cgroupv2 killing with signal %d to pid %d in cgroup %s\n", sig, victim_pid, cgroup_name.c_str());
+			if (sig == SIGKILL) {
+				struct timespec ts;
+				clock_gettime(CLOCK_REALTIME, &ts);
+				FILE* log_file = fopen("sigkill_log.txt", "a");
+				if (log_file) {
+					fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+					        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), victim_pid);
+					fclose(log_file);
+				}
+			}
 			kill(victim_pid, sig);
 		}
 	}

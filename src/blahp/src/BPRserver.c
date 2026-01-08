@@ -343,6 +343,16 @@ main(int argc, char **argv)
 						perror("Unable to kill the job:");
 						fprintf(stderr, "Sleeping 30 seconds and retrying with SIGKILL...\n");
 						sleep(30);
+						{
+							struct timespec ts;
+							clock_gettime(CLOCK_REALTIME, &ts);
+							FILE* log_file = fopen("sigkill_log.txt", "a");
+							if (log_file) {
+								fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+								        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), monitored_pid);
+								fclose(log_file);
+							}
+						}
 						kill(monitored_pid, SIGKILL);
 						fprintf(stderr, "SIGKILL sent, exiting...\n");
 					}

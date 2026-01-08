@@ -504,6 +504,16 @@ ProcFamilyDirectCgroupV1::signal_process(pid_t pid, int sig)
 	pid_t victim_pid;
 	while (fscanf(f, "%d", &victim_pid) != EOF) {
 		if (pid != me) { // just in case
+			if (sig == SIGKILL) {
+				struct timespec ts;
+				clock_gettime(CLOCK_REALTIME, &ts);
+				FILE* log_file = fopen("sigkill_log.txt", "a");
+				if (log_file) {
+					fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+					        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), victim_pid);
+					fclose(log_file);
+				}
+			}
 			kill(victim_pid, sig);
 		}
 	}

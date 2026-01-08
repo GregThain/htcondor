@@ -589,6 +589,16 @@ my_popenv_impl( const char *const args[],
 		close( pipe_writedata[1] );
 
 		/* Ensure child process is dead, then wait for it to exit */
+		{
+			struct timespec ts;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			FILE* log_file = fopen("sigkill_log.txt", "a");
+			if (log_file) {
+				fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+				        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+				fclose(log_file);
+			}
+		}
 		kill(pid, SIGKILL);
 		while( waitpid(pid,NULL,0) < 0 && errno == EINTR ) {
 			/* NOOP */
@@ -605,6 +615,16 @@ my_popenv_impl( const char *const args[],
 		close( pipe_writedata[1] );
 
 		/* Ensure child process is dead, then wait for it to exit */
+		{
+			struct timespec ts;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			FILE* log_file = fopen("sigkill_log.txt", "a");
+			if (log_file) {
+				fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+				        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+				fclose(log_file);
+			}
+		}
 		kill(pid, SIGKILL);
 		while( waitpid(pid,NULL,0) < 0 && errno == EINTR ) {
 			/* NOOP */
@@ -753,6 +773,16 @@ my_pclose_ex(FILE *fp, time_t timeout, bool kill_after_timeout)
 	// send a kill signal and wait for it to terminate
 	status = MYPCLOSE_EX_STILL_RUNNING;
 	if (kill_after_timeout) {
+		{
+			struct timespec ts;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			FILE* log_file = fopen("sigkill_log.txt", "a");
+			if (log_file) {
+				fprintf(log_file, "%ld.%03ld killer_pid=%d target_pid=%d\n",
+				        ts.tv_sec, ts.tv_nsec / 1000000, getpid(), pid);
+				fclose(log_file);
+			}
+		}
 		kill(pid,SIGKILL);
 		while (waitpid(pid,&status,0) < 0) {
 			if (errno != EINTR) {
