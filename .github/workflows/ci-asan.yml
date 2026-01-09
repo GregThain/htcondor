@@ -42,7 +42,6 @@ jobs:
         with:
           name: asan-output
           path: |
-            __build
             asan/
           retention-days: 1
           overwrite: true
