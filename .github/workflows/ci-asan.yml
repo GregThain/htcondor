@@ -2,12 +2,12 @@ name: Run tests with Address Sanitizer
 
 on:
   pull_request:
-    types: [labeled]
+    types: [labeled, pull_request]]
 
 jobs:
   ubuntu_asan_build:
     # Only run with the "asan" label
-    if: github.event.action == 'labeled' && github.event.labels.name == 'asan'
+    if: github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'asan')
     runs-on: ubuntu-latest
 
     # Use htcondor build containers for the real work
