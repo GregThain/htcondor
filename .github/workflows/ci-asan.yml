@@ -2,7 +2,7 @@ name: Run tests with Address Sanitizer
 
 on:
   pull_request:
-    types: [labeled, pull_request]]
+    types: [labeled, pull_request]
 
 jobs:
   ubuntu_asan_build:
