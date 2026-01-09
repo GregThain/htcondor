@@ -9,7 +9,7 @@ leak:SharedPortState::HandleUnbound
 leak:test_log_writer
 
 # Can't fix perl
-leak:Perl_
+leak:perl_
 
 #  Python leaks
 leak:AllocNoTrack
