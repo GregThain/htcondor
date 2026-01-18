@@ -335,7 +335,7 @@ class FileTransfer final: public Service {
 		std::string tcp_stats;
 	};
 
-	FileTransferInfo GetInfo() {
+	const FileTransferInfo GetInfo() {
 		return r_Info;
 	}
 
