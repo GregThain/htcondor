@@ -208,14 +208,13 @@ jobs:
 
       - name: Build Ubuntu 
         run: |
-          sudo useradd -m condorauto
-          chmod 0777 .
-          mkdir __build && chown condorauto __build && chmod 0777 __build
-          su condorauto -c "cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install"
+          id
+          mkdir __build && && chmod 0777 __build
+          cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install"
 
       - name: Test with rootness
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance" )
+        run: ( "cd __build && ctest --output-junit test.xml -j 40 -E guidance" )
 
   dashboard:
     needs: [build, macbuild, winbuild]
