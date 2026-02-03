@@ -210,7 +210,7 @@ jobs:
         run: |
           id
           mkdir __build && chmod 0777 __build
-          cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install"
+          cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install
 
       - name: Test with rootness
         # Use su to run as condorauto user inside container, test_guidance test is flakey
