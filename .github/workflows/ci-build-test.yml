@@ -215,7 +215,7 @@ jobs:
 
       - name: Test with rootness
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( "cd __build && ctest --output-junit test.xml -j 40 -E guidance" )
+        run: ( cd __build && ctest --output-junit test.xml -j 40 -E guidance )
 
   dashboard:
     needs: [build, macbuild, winbuild]
