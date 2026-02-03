@@ -210,6 +210,7 @@ jobs:
         run: |
           id
           sudo apt-get install uuid-dev libcurl4-openssl-dev
+          sudo pip3 install pytest pytest-httpserver
           mkdir __build && chmod 0777 __build
           cd __build && cmake -GNinja -DWITH_SCITOKENS:bool=false -DWITH_KRB5:bool=false -DWITH_MUNGE:bool=false -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install
 
