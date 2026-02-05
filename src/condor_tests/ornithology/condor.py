@@ -231,11 +231,14 @@ class Condor:
 
         # First make the dirs as non-privileged user
         for dir in condor_dirs_to_make:
+            print("GGT GGT GGT fixing to make...")
+            print(dir)
             try:
                 dir.mkdir(parents=True, exist_ok=not self.clean_local_dir_before)
             except Exception as e:
                 print(e)
-                print("GGTGGT")
+                print("GGTGGT got exception")
+            print("GGT GGT GGT done making")
 
         # Unprivileged users will write the condor_config file here, cheat by making world writable
         if self.use_sudo:
@@ -345,7 +348,7 @@ class Condor:
             # If we invoke the condor_master via sudo, sudo won't use the path for
             # security reasons, so we have to find the binary ourselves.
             master_bin = shutil.which("condor_master")
-            cmd = [master_bin, "-f", "-t"]
+            cmd = [master_bin, "-f"]
             
             if self.use_sudo:
                 cmd = ["sudo", "-E"] + cmd
