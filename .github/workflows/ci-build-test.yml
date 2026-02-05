@@ -214,6 +214,12 @@ jobs:
           mkdir __build && chmod 0777 __build
           cd __build && cmake -GNinja -DWITH_SCITOKENS:bool=false -DWITH_KRB5:bool=false -DWITH_MUNGE:bool=false -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .. && ninja -j 4 install
           chmod a+rwx /home/runner
+          # Now install apptainer
+          sudo apt update
+          sudo apt install -y software-properties-common
+          sudo add-apt-repository -y ppa:apptainer/ppa
+          sudo apt update
+          sudo apt install -y apptainer
 
       - name: Test with rootness
         # Use su to run as condorauto user inside container, test_guidance test is flakey
