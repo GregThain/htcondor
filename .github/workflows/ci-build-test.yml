@@ -208,6 +208,7 @@ jobs:
 
       - name: Build Ubuntu 
         run: |
+          umask
           sudo useradd -m condor
           sudo apt-get install uuid-dev libcurl4-openssl-dev
           sudo pip3 install pytest pytest-httpserver
