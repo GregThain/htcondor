@@ -233,7 +233,7 @@ class Condor:
         for dir in condor_dirs_to_make:
             try:
                 dir.mkdir(parents=True, exist_ok=not self.clean_local_dir_before)
-            except PermissionError as e:
+            except Exception as e:
                 print(e)
                 print("GGTGGT")
 
