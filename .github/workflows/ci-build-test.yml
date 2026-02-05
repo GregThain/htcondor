@@ -208,7 +208,6 @@ jobs:
 
       - name: Build Ubuntu 
         run: |
-          umask
           sudo useradd -m condor
           sudo apt-get install uuid-dev libcurl4-openssl-dev
           sudo pip3 install pytest pytest-httpserver
@@ -217,7 +216,7 @@ jobs:
 
       - name: Test with rootness
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( cd __build && HTCONDOR_TEST_USE_SUDO=1 ctest -V --output-junit test.xml -j 40 -R test_cgroup_oom )
+        run: ( cd __build && HTCONDOR_TEST_USE_SUDO=1 ctest -V --output-junit test.xml -j 40 -R test_cgroup_oom ; /bin/ls -lR ;  exit 1)
 
       - name: Upload All on Failure
         if: failure()
