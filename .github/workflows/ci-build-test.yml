@@ -225,7 +225,7 @@ jobs:
         with:
           name: root-output-for-ubuntu
           path: |
-            __build/src/condor_tests
+            /home/runner
             __build/Testing
           retention-days: 2
           overwrite: true

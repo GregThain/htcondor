@@ -235,6 +235,7 @@ class Condor:
             print(dir)
             try:
                 dir.mkdir(parents=True, exist_ok=not self.clean_local_dir_before)
+                print("GGTGGT mkdir does not throw")
             except Exception as e:
                 print(e)
                 print("GGTGGT got exception")
