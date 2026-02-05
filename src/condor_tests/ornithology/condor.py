@@ -345,7 +345,7 @@ class Condor:
             # If we invoke the condor_master via sudo, sudo won't use the path for
             # security reasons, so we have to find the binary ourselves.
             master_bin = shutil.which("condor_master")
-            cmd = [master_bin, "-f"]
+            cmd = [master_bin, "-f", "-t"]
             
             if self.use_sudo:
                 cmd = ["sudo", "-E"] + cmd
