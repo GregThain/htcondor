@@ -216,7 +216,7 @@ jobs:
 
       - name: Test with rootness
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( cd __build && HTCONDOR_TEST_USE_SUDO=1 ctest --output-junit test.xml -j 40 -R test_cgroup_oom )
+        run: ( cd __build && HTCONDOR_TEST_USE_SUDO=1 ctest -V --output-junit test.xml -j 40 -R test_cgroup_oom )
 
       - name: Upload All on Failure
         if: failure()
