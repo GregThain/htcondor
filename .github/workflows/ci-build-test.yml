@@ -225,14 +225,18 @@ jobs:
         # Use su to run as condorauto user inside container, test_guidance test is flakey
         run: ( cd __build && HTCONDOR_TEST_USE_SUDO=1 ctest --output-junit test.xml -j 40 )
 
+      - name: build tarball on failure
+        if: failure()
+        run: |
+          cd __build/src/condor_tests && sudo tar czvf /home/runner/root-test-failures.tar.gz . && chmod 0777 /home/runner/root-test-failures.tar.gz /home/runner/
+
       - name: Upload All on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: root-output-for-ubuntu
           path: |
-            /home/runner
-            __build/Testing
+            /home/runner/root-test-failures.tar.gz
           retention-days: 2
           overwrite: true
 
