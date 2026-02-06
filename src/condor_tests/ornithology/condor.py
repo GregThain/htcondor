@@ -204,7 +204,7 @@ class Condor:
             self._write_config()
             self._start_condor()
             self._wait_for_ready()
-            self._make_job_log_public_if_root()
+            self._make_job_queue_log_public_if_root()
         except BaseException:
             logger.exception(
                 "Encountered error during setup of {}, cleaning up!".format(self)
@@ -365,17 +365,6 @@ class Condor:
             logger.debug(
                 "Started condor_master (pid {})".format(self.condor_master.pid)
             )
-
-    def _make_job_log_public_if_root(self):
-        if self.use_sudo:
-            # If we're running as root, the job log will be created with root ownership and permissions that prevent the unprivileged test process from reading it. Fix that here by making it world-readable.
-            spool_dir = self.spool_dir.as_posix()
-            job_queue_log = spool_dir / "job_queue.log"
-            cmd.run_command(
-                ["sudo", "chmod", "0666", job_queue_log],
-                    echo=False,
-                    suppress=True,
-             )
 
     @skip_if(condor_is_ready)
     def _wait_for_ready(self, timeout: int = 120, dump_logs_if_fail: bool = False):
@@ -827,6 +816,14 @@ class Condor:
         """
         return self.submit(htcondor.Submit.from_dag(str(dagfile)))
 
+    def _make_job_queue_log_public_if_root(self):
+        if self.use_sudo:
+            # If we're running condor_master as root, then the job queue log will be owned by root and not readable by the unprivileged user running this code, so chmod it to be world-readable
+            cmd.run_command(
+                ["sudo", "chmod", "0666", self.job_queue_log.as_posix()],
+                echo=False,
+                suppress=True,
+            )
 
 RE_PORT_HOST = re.compile(r"\d+\.\d+\.\d+\.\d+:\d+")
 
