@@ -228,7 +228,7 @@ jobs:
       - name: build tarball on failure
         if: failure()
         run: |
-          cd __build/src/condor_tests && sudo tar czvf /home/runner/root-test-failures.tar.gz . && chmod 0777 /home/runner/root-test-failures.tar.gz /home/runner/
+          cd __build/src/condor_tests && sudo tar czf /home/runner/root-test-failures.tar.gz .
 
       - name: Upload All on Failure
         if: failure()
