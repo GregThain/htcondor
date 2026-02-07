@@ -232,15 +232,9 @@ class Condor:
 
         # First make the dirs as non-privileged user
         for dir in condor_dirs_to_make:
-            print("GGT GGT GGT fixing to make...")
-            print(dir)
             try:
                 dir.mkdir(parents=True, exist_ok=not self.clean_local_dir_before)
-                print("GGTGGT mkdir does not throw")
             except Exception as e:
-                print(e)
-                print("GGTGGT got exception")
-            print("GGT GGT GGT done making")
 
         # Unprivileged users will write the condor_config file here, cheat by making world writable
         if self.use_sudo:
