@@ -42,9 +42,12 @@ FILETRANSFER_PLUGINS = $(LIBEXEC)/curl_plugin
 DAEMON_SHUTDOWN=time() - DaemonStartTime > 1500
 
 # The param table assumes singularity/apptainer has been installed
-# from the tarball into libexec.  Let's use the system onedrive
+# from the tarball into libexec.  Let's use the system one
 
 SINGULARITY = /usr/bin/singularity
+
+# On the mac, seems like the lack of network in gha causes problems
+NETWORK_INTERFACE = 127.0.0.1
 {extra_args}
 """
 
