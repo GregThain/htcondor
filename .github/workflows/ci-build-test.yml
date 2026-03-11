@@ -124,7 +124,7 @@ jobs:
 
       - name: Test
         run: |
-          cd __build && ctest --output-junit test.xml -j 10 -E test_guidance -R cmd_condor_off-master
+          cd __build && ctest --output-junit test.xml -j 20 -E test_guidance
 
       - name: Upload All on Failure
         if: always()
