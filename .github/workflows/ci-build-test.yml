@@ -148,12 +148,27 @@ jobs:
       - name: build
         run: (cmake --build . --verbose --config Release --parallel 4)
 
+  resolve-ubunturoot-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.extract.outputs.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract ubunturoot image from nmi-build-platforms
+        id: extract
+        run: |
+          IMAGE=$(.github/workflows/scripts/extract_ubunturoot_image.py)
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
   ubuntunative:
+    needs: resolve-ubunturoot-image
     runs-on: ubuntu-latest
 
     # Use htcondor build containers for the real work
     container:
-      image: htcondor/nmi-build:x86_64_Ubuntu24-25000602
+      image: ${{ needs.resolve-ubunturoot-image.outputs.image }}
       env:
         OMP_NUM_THREADS: 4
       options: --cpus 4
@@ -209,6 +224,7 @@ jobs:
       - name: Build Ubuntu 
         run: |
           sudo useradd -m condor
+          sudo apt-get update
           sudo apt-get install uuid-dev libcurl4-openssl-dev
           sudo pip3 install pytest pytest-httpserver
           mkdir __build && chmod 0777 __build
@@ -230,69 +246,13 @@ jobs:
         run: |
           cd __build/src/condor_tests && sudo tar czf /home/runner/root-test-failures.tar.gz .
 
+      - name: Test with rootness
+        # Use su to run as condorauto user inside container, test_guidance test is flakey
+        run: ( cd __build && HTCONDOR_TEST_USE_SUDO=1 ctest --output-junit test.xml -j 40 -R test_cgroup_oom )
+
       - name: Upload All on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: root-output-for-ubuntu
           path: |
-            /home/runner/root-test-failures.tar.gz
-          retention-days: 2
-          overwrite: true
-
-
-  dashboard:
-    needs: [build, macbuild, winbuild]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-         - name: Download test xml output artifacts
-           uses: actions/download-artifact@v4
-           with:
-             pattern: tests-for-*
-
-         - name: create_summary
-           shell: python
-           run: |
-             import os
-             import sys
-             import xml.etree.ElementTree as ET
-             from pathlib import Path
-             from collections import defaultdict
-
-             results = defaultdict(dict)
-
-             # Parse all test.xml files from downloaded artifacts into the results dict
-             for dir in Path(".").iterdir():
-               test_xml = dir / 'test.xml'
-               for elem in ET.parse(test_xml).getroot().findall("testcase"):
-                 testname = elem.get("name")
-                 teststatus = ":green_circle:" if elem.get("status") == "run" else ":red_circle:"
-                 results[dir][testname] = teststatus
-
-             header = "| test |"
-             separator = "|---|"
-
-             for platform in sorted(results.keys()):
-               header += f"{platform}|"
-               separator += "---|"
-
-             with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-               f.write(header + "\n")
-               f.write(separator + "\n")
-
-             alltests = set()
-             for platform in results.values():
-               for name in platform:
-                 alltests.add(name)
-
-             # Print out a line for each test
-             for test in sorted(alltests):
-               line = f"| {test} |"
-               for platform in results.keys():
-                 if test in results[platform]:
-                   line += f"{results[platform][test]} |"
-                 else:
-                   line += " - |"
-               with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-                 f.write(line + "\n")

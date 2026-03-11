@@ -237,14 +237,14 @@ Requires: krb5-libs
 Requires: libcom_err
 Requires: munge-libs
 Requires: openssl-libs
-Requires: scitokens-cpp >= 0.6.2
+Requires: scitokens-cpp
 Requires: systemd-libs
 %endif
 Requires: rsync
 
 # Require tested Pelican packages
-Requires: (pelican >= 7.22.0 or pelican-debug >= 7.22.0)
-Requires: pelican-osdf-compat >= 7.22.0
+Requires: (pelican >= 7.23.0 or pelican-debug >= 7.23.0)
+Requires: pelican-osdf-compat >= 7.23.0
 
 %if ! 0%{?amzn} && "%{os_release_id}" != "sles"
 # Require tested Apptainer
@@ -1223,6 +1223,9 @@ rm -rf %{buildroot}
 %if %uw_build
 %_libdir/condor/condor_tests-%{version}.tar.gz
 %endif
+# Experimental - not for wider deployment
+%_bindir/condor_login
+%_sbindir/condor_placementd
 
 %files -n python3-condor
 %defattr(-,root,root,-)
@@ -1314,6 +1317,39 @@ fi
 # configuration
 
 %changelog
+* Thu Mar 12 2026 Tim Theisen <tim@cs.wisc.edu> - 25.7.2-1
+- Improve schedd performance with large job records by sizing pipe buffers
+- condor_watch_q display improvements
+- When a job runs out of memory, report how much memory was provisioned
+
+* Thu Mar 12 2026 Tim Theisen <tim@cs.wisc.edu> - 25.0.8-1
+- All changes in 24.12.18
+
+* Thu Mar 12 2026 Tim Theisen <tim@cs.wisc.edu> - 24.12.18-1
+- Improve AMD GPU detection when using RCOM6/HIP libraries
+- Fix for new jobs getting kicked off LVM EP due to quantization mismatch
+- condor_submit now reports an error for circular requirement expressions
+- condor_status now correctly reports offline GPUs
+- Can use use a string for 'since' with htcondor.Schedd.history()
+- Fix for backfill GPUs disappearing on reconfig
+
+* Thu Mar 12 2026 Tim Theisen <tim@cs.wisc.edu> - 24.0.18-1
+- Enable use of in-memory SciTokens cache, if disk cache not usable
+- Fix condor_submit using different executables with late materialization
+- HTCondor tarballs now contain Pelican 7.23.0
+
+* Thu Feb 12 2026 Tim Theisen <tim@cs.wisc.edu> - 25.0.7-1
+- Fix the broken htcondor2.Schedd.refreshGPIProxy() Python method
+- Improve condor_history performance on filesystems with I/O rate limits
+
+* Thu Feb 12 2026 Tim Theisen <tim@cs.wisc.edu> - 24.12.17-1
+- Fix the broken htcondor2.Schedd.refreshGPIProxy() Python method
+- Improve condor_history performance on filesystems with I/O rate limits
+
+* Thu Feb 12 2026 Tim Theisen <tim@cs.wisc.edu> - 24.0.17-1
+- Fix the broken htcondor2.Schedd.refreshGPIProxy() Python method
+- Improve condor_history performance on filesystems with I/O rate limits
+
 * Thu Jan 29 2026 Tim Theisen <tim@cs.wisc.edu> - 25.6.1-2
 - Fix condor user creation for Enterprise Linux 10
 - Fix python3 dependency on openSUSE 16
