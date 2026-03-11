@@ -46,8 +46,6 @@ DAEMON_SHUTDOWN=time() - DaemonStartTime > 1500
 
 SINGULARITY = /usr/bin/singularity
 
-# On the mac, seems like the lack of network in gha causes problems
-NETWORK_INTERFACE = 127.0.0.1
 {extra_args}
 """
 

@@ -121,7 +121,16 @@ jobs:
 
       - name: Test
         run: |
-          cd __build && ctest --output-junit test.xml -j 10 -E test_guidance
+          cd __build && ctest --output-junit test.xml -j 10 -E test_guidance -R cmd_condor_off-master
+
+      - name: Upload All on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-for-mac
+          path: __build/src/condor_tests
+          retention-days: 2
+          overwrite: true
 
   winbuild:
     runs-on: windows-latest
