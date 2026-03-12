@@ -116,8 +116,8 @@ jobs:
 
       - name: Install python accessories
         run: |
-          python -m pip install --upgrade pip 
-          pip install pytest pytest-httpserver
+          sudo /usr/bin/python -m pip install --upgrade pip 
+          sudo /usr/bin/pip install pytest pytest-httpserver
           echo $PATH
           type python
 
@@ -126,15 +126,11 @@ jobs:
 
       - name: Build
         run: |
-          echo $PATH
-          type python
           mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install
 
       - name: Test
         run: |
-          echo $PATH
-          type python
-          cd __build && ctest --output-junit test.xml -j 20 -E test_guidance
+          cd __build && PATH=/usr/bin:$PATH ctest --output-junit test.xml -j 20 -E test_guidance
 
       - name: Upload All on Failure
         if: always()
