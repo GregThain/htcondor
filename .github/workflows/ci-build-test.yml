@@ -43,6 +43,8 @@ jobs:
 
       - name: Build
         run: |
+          /usr/bin/df
+          mount
           # Hackery for using toolset gcc instead of default
           if [ -f "/opt/rh/gcc-toolset-14/root/usr/bin/gcc" ]; then
             export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
