@@ -146,7 +146,7 @@ jobs:
         run: (cmake -G "Visual Studio 17 2022" -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" .)
 
       - name: build
-        run: (cmake --build . --verbose --config Release --parallel 4 install)
+        run: (cmake --build . --verbose --config Release --parallel 4 --target externals install)
 
   resolve-ubunturoot-image:
     runs-on: ubuntu-latest
