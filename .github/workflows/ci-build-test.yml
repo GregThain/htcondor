@@ -123,7 +123,7 @@ jobs:
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
       - name: test
-        run: ( cd __build && ctest --output-junit test.xml -j 40 -R job_dagman_vars )
+        run: ( cd __build && ctest --output-junit test.xml -j 40 -E guidance )
 
   winbuild:
     runs-on: windows-latest
