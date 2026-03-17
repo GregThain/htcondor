@@ -107,17 +107,23 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Install python
-        uses: actions/setup-python@v5
+#      - name: Install python
+#        uses: actions/setup-python@v5
 
       - name: Install python accessories
         run: |
           pip install pytest pytest-httpserver
 
+      - name: hack for broken reverse DNS
+        run: sudo sed -i -e "s/localhost/localhost $(hostname)/g" /etc/hosts
+
       - name: Build
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
+
+      - name: test
+        run: ( cd __build && ctest --output-junit test.xml -j 40 -R job_dagman_vars )
 
   winbuild:
     runs-on: windows-latest
