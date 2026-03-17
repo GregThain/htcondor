@@ -115,6 +115,9 @@ jobs:
       - name: Install python accessories
         run: |
           pip install pytest pytest-httpserver
+          type pytest
+          type python
+          echo $PATH
 
       - name: hack for broken reverse DNS
         run: sudo sed -i -e "s/localhost/localhost $(hostname)/g" /etc/hosts
