@@ -118,6 +118,8 @@ jobs:
           type pytest
           type python
           echo $PATH
+          sudo rm /usr/bin/python
+          sudo ln -s $(which python3) /usr/bin/python
 
       - name: hack for broken reverse DNS
         run: sudo sed -i -e "s/localhost/localhost $(hostname)/g" /etc/hosts
