@@ -67,7 +67,7 @@ jobs:
 
       - name: test
         # Use su to run as condorauto user inside container, test_guidance test is flakey
-        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40 -E guidance" )
+        run: ( su condorauto -c "cd __build && ctest --output-junit test.xml -j 40")
 
         # Report the memory used by the build & test run, because I'm curious
       - name: memory usage
@@ -128,7 +128,7 @@ jobs:
         run: (mkdir __build && cd __build && cmake -GNinja -DWITH_VOMS:bool=false .. && ninja -j4 install)
 
       - name: test
-        run: ( cd __build && ctest --output-junit test.xml -j 40 -E guidance )
+        run: ( cd __build && ctest --output-junit test.xml -j 40 )
 
   winbuild:
     runs-on: windows-latest
