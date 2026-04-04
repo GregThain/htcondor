@@ -4940,6 +4940,7 @@ char const *DCSignalMsg::signalName() const
 
 bool DaemonCore::Send_Signal(pid_t pid, int sig)
 {
+	dprintf(D_ALWAYS, "GGT GGT GGT DC::SendSignal from %d to %d signal %d\n", mypid, pid, sig);
 	if (pid == mypid) return Signal_Myself(sig);
 
 	classy_counted_ptr<DCSignalMsg> msg = new DCSignalMsg(pid,sig);
