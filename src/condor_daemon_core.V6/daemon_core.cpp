@@ -1,4 +1,3 @@
-
 /***************************************************************
  *
  * Copyright (C) 1990-2011, Condor Team, Computer Sciences Department,
