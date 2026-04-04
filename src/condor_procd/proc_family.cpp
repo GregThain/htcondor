@@ -353,6 +353,7 @@ ProcFamily::spree_cgroup(int sig)
 				m_cgroup_string.c_str(), m_root_pid, err, cgroup_strerror(err));
 			goto release;
 		}
+		dprintf(D_ALWAYS, "GGT GGT GGT send signal cgroup ???? from pid %u to %u %d\n", getpid(), pid, sig);
 		send_signal(pid, sig);
 		err = cgroup_get_task_next(handle, &pid);
 	}
@@ -788,6 +789,7 @@ ProcFamily::aggregate_usage(ProcFamilyUsage* usage)
 void
 ProcFamily::signal_root(int sig)
 {
+	dprintf(D_ALWAYS, "GGT GGT GGT send signal root from pid %u to %u %d\n", getpid(), m_root_pid, sig);
 	send_signal(m_root_pid, sig);
 }
 
@@ -802,6 +804,7 @@ ProcFamily::spree(int sig)
 
 	ProcFamilyMember* member;
 	for (member = m_member_list; member != NULL; member = member->m_next) {
+		dprintf(D_ALWAYS, "GGT GGT GGT send signal spreeee! from pid %u to %u %d\n", getpid(), member->m_proc_info->pid, sig);
 		send_signal(member->m_proc_info->pid, sig);
 	}
 }
