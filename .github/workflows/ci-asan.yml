@@ -13,7 +13,7 @@ jobs:
       image: ${{ steps.extract.outputs.image }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Extract ubunturoot image from nmi-build-platforms
         id: extract
@@ -33,7 +33,7 @@ jobs:
       options: --cpus 4
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Compile with Address Sanitizer
         run: |

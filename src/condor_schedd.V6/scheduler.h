@@ -508,6 +508,7 @@ class Scheduler : public Service
     int         	unlinkMrec(match_rec*);
 	match_rec*      FindMrecByJobID(PROC_ID);
 	match_rec*      FindMrecByClaimID(char const *claim_id);
+	void            CleanupMatchForJobExit(const shadow_rec *srec);
 	void            SetMrecJobID(match_rec *rec, int cluster, int proc);
 	void            SetMrecJobID(match_rec *match, PROC_ID job_id);
 	shadow_rec*		FindSrecByPid(int);
@@ -826,6 +827,7 @@ private:
 	int				JobsTotalAds;
 	int				JobsFlocked;
 	int				JobsRemoved;
+	int				SchedUniverseCoolDownDuration; // Time in seconds a failed sched universe job will be on cool down
 	int				SchedUniverseJobsIdle;
 	int				SchedUniverseJobsRunning;
 	int				LocalUniverseJobsIdle;
@@ -953,6 +955,7 @@ private:
 	int				jobThrottle( void );
 	void			initLocalStarterDir( void );
 	bool			jobExitCode( PROC_ID job_id, int exit_code );
+	void			setJobCoolDown(const PROC_ID job_id, const long long duration);
 	double			calcSlotWeight(match_rec *mrec) const;
 	double			guessJobSlotWeight(JobQueueJob * job);
 	

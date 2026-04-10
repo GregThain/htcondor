@@ -683,20 +683,31 @@ OsProc::StartJob(FamilyInfo* family_info, FilesystemRemap* fs_remap=NULL)
 				EXCEPT("Create_Process failed to register the job with the ProcD");
 			}
 
-			std::string err_msg = "Failed to execute '";
-			err_msg += JobName;
-			err_msg += "'";
-			if(!args_string.empty()) {
-				err_msg += " with arguments ";
-				err_msg += args_string;
-			}
-			err_msg += ": ";
-			err_msg += create_process_err_msg;
-			if( !ThisProcRunsAlongsideMainProc() ) {
-				starter->jic->notifyStarterError( err_msg.c_str(),
-			    	                              true,
-			        	                          CONDOR_HOLD_CODE::FailedToCreateProcess,
-			            	                      create_process_errno );
+			if (create_process_errno == DaemonCore::ERRNO_OOM_KILLED_AT_STARTUP) {
+				std::string err_msg = "Job was OOM killed by cgroup memory limit "
+					"before it could start. Consider requesting more memory.";
+				if( !ThisProcRunsAlongsideMainProc() ) {
+					starter->jic->notifyStarterError( err_msg.c_str(),
+					                                  true,
+					                                  CONDOR_HOLD_CODE::FailedToCreateProcess,
+					                                  create_process_errno );
+				}
+			} else {
+				std::string err_msg = "Failed to execute '";
+				err_msg += JobName;
+				err_msg += "'";
+				if(!args_string.empty()) {
+					err_msg += " with arguments ";
+					err_msg += args_string;
+				}
+				err_msg += ": ";
+				err_msg += create_process_err_msg;
+				if( !ThisProcRunsAlongsideMainProc() ) {
+					starter->jic->notifyStarterError( err_msg.c_str(),
+					                                  true,
+					                                  CONDOR_HOLD_CODE::FailedToCreateProcess,
+					                                  create_process_errno );
+				}
 			}
 		}
 
@@ -1223,21 +1234,6 @@ OsProc::AcceptSingSshClient(Stream *stream) {
 		free(user_name);
 	}
 
-	bool setuid = param_boolean("SINGULARITY_IS_SETUID", true);
-	if (setuid) {
-		// The default case where singularity is using a setuid wrapper
-		args.AppendArg("-m"); // mount namespace
-		args.AppendArg("-i"); // ipc namespace
-		args.AppendArg("-p"); // pid namespace
-		args.AppendArg("-r"); // root directory
-		args.AppendArg("-w"); // cwd is container's
-
-	} else {
-		args.AppendArg("-U"); // enter only the User namespace
-		args.AppendArg("-r"); // chroot
-		args.AppendArg("-preserve-credentials");
-	}
-
 	Env env;
 	std::string env_errors;
 	if (!starter->GetJobEnv(JobAd,&env, env_errors)) {
@@ -1272,7 +1268,7 @@ OsProc::AcceptSingSshClient(Stream *stream) {
     std::string create_process_err_msg;
 	OptionalCreateProcessArgs cpArgs(create_process_err_msg);
 	singExecPid = daemonCore->CreateProcessNew( bin_dir, args,
-		 cpArgs.priv(setuid ? PRIV_ROOT: PRIV_USER)
+		 cpArgs.priv(PRIV_ROOT)
 		.wantCommandPort(FALSE).wantUDPCommandPort(FALSE)
 		.env(&env).cwd(".").std(fds).reaperID(singReaperId)
 	);

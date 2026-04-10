@@ -33,6 +33,10 @@
 ## metaknob names always start with $ and a category name.
 ##
 
+[CHECK_REACTIVATE_AFTER_CHECKPOINT]
+default=true
+type=bool
+
 [STARTER_DIAGNOSTIC_send_ep_logs]
 default=$(LIBEXEC)/condor_diagnostic_send_ep_logs
 
@@ -3483,6 +3487,12 @@ tags=schedd
 default=TotalSchedulerJobsRunning < 500
 description=expression that, when TRUE allows a Scheduler universe job to start
 type=string
+tags=schedd
+
+[SCHEDULER_UNIVERSE_COOL_DOWN_DURATION]
+default=300
+description=Time in seconds to put scheduler universe job in cool down when exited with non-zero exit code.
+type=int
 tags=schedd
 
 [MAX_JOBS_SUBMITTED]
