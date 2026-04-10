@@ -5343,6 +5343,7 @@ int DaemonCore::Shutdown_Fast(pid_t pid, [[maybe_unused]] bool want_core )
 	}
 
 	priv_state priv = set_root_priv();
+	dprintf(D_ALWAYS, "GGT GGT GGT DC::Shutdownfast pid %d kill %d with %d\n", getpid(), pid, want_core ? SIGABRT : SIGKILL );
 	int status = kill(pid, want_core ? SIGABRT : SIGKILL );
 	set_priv(priv);
 	return (status >= 0);		// return 1 if kill succeeds, 0 otherwise
