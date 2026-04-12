@@ -39,10 +39,13 @@ jobs:
         env:
           COVERITY_API_KEY: ${{ secrets.COVERITY_API_KEY }}
         run: |
-          wget https://scan.coverity.com/download/linux64 --post-data "token=${COVERITY_API_KEY}&project=GregThain%2Fhtcondor" -O coverity_tool.tgz
+          wget --quiet https://scan.coverity.com/download/linux64 --post-data "token=${COVERITY_API_KEY}&project=GregThain%2Fhtcondor" -O coverity_tool.tgz
           tar xzf coverity_tool.tgz
           chmod 0777 .
           mkdir __build && chown condorauto __build && chmod 0777 __build
           su condorauto -c "cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .."
-          su condorauto -c "export PATH=$GITHUB_WORKSPACE/cov*/bin:$PATH && cd __build && mkdir cov-int && cov-build --dir cov-int ninja -j 4"
+          pwd
+          ls
+          ls ..
+          su condorauto -c "cd __build && mkdir cov-int && ../cov-*/bin/cov-build --dir cov-int ninja -j 4"
           cd __build && tar cvzf cov.tgz cov-int
