@@ -46,8 +46,8 @@ jobs:
           su condorauto -c "cd __build && cmake -GNinja -DWITH_LIBVIRT:bool=false -DWITH_VOMS:bool=false .."
           su condorauto -c "cd __build && ninja -j 4"
           su condorauto -c "cd __build && touch src/condor_includes/config.h"
-          su condorauto -c "cd __build && mkdir cov-int && ../cov-*/bin/cov-build --dir cov-int ninja -j 4"
-          cd __build && tar cvzf cov.tgz cov-int
+          su condorauto -c "cd __build && mkdir cov-int && ../cov-*/bin/cov-build --dir cov-int ninja -j 4 && pwd"
+          pwd && cd __build && tar cvzf cov.tgz cov-int
           cd __build && curl -X POST -d version="Version" -d description="Description"  -d email=gthain@cs.wisc.edu -d token=${COVERITY_API_KEY} -d file_name="'cov.tgz'" https://scan.coverity.com/projects/22859/builds/init | tee response
           upload_url=$(jq -r '.url' __build/response)
           build_id=$(jq -r '.build_id' __build/response)
