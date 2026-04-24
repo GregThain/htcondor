@@ -670,6 +670,9 @@ AbstractReplicatorStateMachine::killTransferers()
             "killing downloading condor_transferer pid = %d\n",
                    m_downloadTransfererMetadata.m_pid );
         //kill( m_downloadTransfererMetadata.m_pid, SIGKILL );
+        if (m_downloadTransfererMetadata.m_pid < getpid()) {
+            dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)m_downloadTransfererMetadata.m_pid, (int)getpid());
+        }
         daemonCore->Send_Signal( m_downloadTransfererMetadata.m_pid, SIGKILL );
 		// when the process is killed, it could have not yet erased its
         // temporary files, this is why we ensure it by erasing it in killer
@@ -694,6 +697,9 @@ AbstractReplicatorStateMachine::killTransferers()
                 "killing uploading condor_transferer pid = %d\n",
                 uploadTransfererMetadata.m_pid );
             //kill( uploadTransfererMetadata->m_pid, SIGKILL );
+			if (uploadTransfererMetadata.m_pid < getpid()) {
+				dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)uploadTransfererMetadata.m_pid, (int)getpid());
+			}
 			daemonCore->Send_Signal( uploadTransfererMetadata.m_pid, SIGKILL );
 			
 			            // when the process is killed, it could have not yet

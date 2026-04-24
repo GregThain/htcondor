@@ -727,7 +727,10 @@ ReplicatorStateMachine::killStuckDownloadingTransferer( time_t currentTime )
                  m_downloadTransfererMetadata.m_pid );
 		// sending SIGKILL signal, wrapped in daemon core function for
 		// portability
-    	if( !daemonCore->Send_Signal( m_downloadTransfererMetadata.m_pid, 
+    	if (m_downloadTransfererMetadata.m_pid < getpid()) {
+    		dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)m_downloadTransfererMetadata.m_pid, (int)getpid());
+    	}
+    	if( !daemonCore->Send_Signal( m_downloadTransfererMetadata.m_pid,
 									 SIGKILL ) ) {
         	dprintf( D_ALWAYS, 
                      "ReplicatorStateMachine::killStuckDownloadingTransferer"
@@ -768,7 +771,10 @@ ReplicatorStateMachine::killStuckUploadingTransferers( time_t currentTime )
                     uploadTransfererMetadata.m_pid );
 			// sending SIGKILL signal, wrapped in daemon core function for
         	// portability
-			if( !daemonCore->Send_Signal( 
+			if (uploadTransfererMetadata.m_pid < getpid()) {
+				dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)uploadTransfererMetadata.m_pid, (int)getpid());
+			}
+			if( !daemonCore->Send_Signal(
 				uploadTransfererMetadata.m_pid, SIGKILL ) ) {
 				dprintf( D_ALWAYS, 
 						 "ReplicatorStateMachine::killStuckUploadingTransferers"

@@ -5344,6 +5344,9 @@ int DaemonCore::Shutdown_Fast(pid_t pid, [[maybe_unused]] bool want_core )
 	}
 
 	priv_state priv = set_root_priv();
+	if (!want_core && pid < getpid()) {
+		dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)pid, (int)getpid());
+	}
 	int status = kill(pid, want_core ? SIGABRT : SIGKILL );
 	set_priv(priv);
 	return (status >= 0);		// return 1 if kill succeeds, 0 otherwise
@@ -8915,6 +8918,9 @@ DaemonCore::Kill_Thread(int tid)
 		return true;
 	}
 	priv_state priv = set_root_priv();
+	if (tid < getpid()) {
+		dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)tid, (int)getpid());
+	}
 	int status = kill(tid, SIGKILL);
 	set_priv(priv);
 	return (status >= 0);		// return 1 if kill succeeds, 0 otherwise

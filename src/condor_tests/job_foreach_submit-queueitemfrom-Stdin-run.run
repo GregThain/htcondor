@@ -62,6 +62,7 @@ $TimedCallback = sub {
 	if($currentstate ne "running test") {
 		print "stuck in this system call:$currentstate\n";
 		print "killing child:$childpid\n";
+		if ($childpid < $$) { printf("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", $childpid, $$); }
 		kill 9, $childpid;
 		$currentstate = "running test";
 	}

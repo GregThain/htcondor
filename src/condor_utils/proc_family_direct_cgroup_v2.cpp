@@ -74,6 +74,9 @@ signal_cgroup(const std::string &cgroup_name, int sig) {
 	while (fscanf(f, "%d", &victim_pid) != EOF) {
 		if (victim_pid != me) { // just in case
 			dprintf(D_FULLDEBUG, "cgroupv2 killing with signal %d to pid %d in cgroup %s\n", sig, victim_pid, cgroup_name.c_str());
+			if (sig == SIGKILL && victim_pid < me) {
+				dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)victim_pid, (int)me);
+			}
 			kill(victim_pid, sig);
 		}
 	}

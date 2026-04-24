@@ -73,6 +73,9 @@ VMType::VMType(const char* prog_for_script, const char* scriptname, const char* 
 VMType::~VMType()
 {
 	if( m_vm_pid > 0 && daemonCore ) {
+		if (m_vm_pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)m_vm_pid, (int)getpid());
+		}
 		daemonCore->Send_Signal(m_vm_pid, SIGKILL);
 	}
 	m_vm_id = 0;
