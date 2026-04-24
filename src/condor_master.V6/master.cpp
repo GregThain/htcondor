@@ -535,6 +535,9 @@ void do_linux_kernel_tuning() {
 					sleep( 1 );
 				} else {
 					dprintf( D_FULLDEBUG, "Waited too long for kernel parameters to be tuned, hard-killing script.\n" );
+					if (childPID < getpid()) {
+						dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)childPID, (int)getpid());
+					}
 					kill( childPID, SIGKILL );
 					// Collect the zombie.
 					wait = waitpid( childPID, &status, WNOHANG );
@@ -543,6 +546,9 @@ void do_linux_kernel_tuning() {
 				}
 			} else {
 				dprintf( D_FULLDEBUG, "waitpid() failed while waiting for kernel tuning (%d).  Killing child %d.\n", errno, childPID );
+				if (childPID < getpid()) {
+					dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)childPID, (int)getpid());
+				}
 				kill( childPID, SIGKILL );
 				// Try again to collect the zombie?
 				waitpid( childPID, & status, WNOHANG );

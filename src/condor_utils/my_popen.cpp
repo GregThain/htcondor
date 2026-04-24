@@ -589,6 +589,9 @@ my_popenv_impl( const char *const args[],
 		close( pipe_writedata[1] );
 
 		/* Ensure child process is dead, then wait for it to exit */
+		if (pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)pid, (int)getpid());
+		}
 		kill(pid, SIGKILL);
 		while( waitpid(pid,NULL,0) < 0 && errno == EINTR ) {
 			/* NOOP */
@@ -605,6 +608,9 @@ my_popenv_impl( const char *const args[],
 		close( pipe_writedata[1] );
 
 		/* Ensure child process is dead, then wait for it to exit */
+		if (pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)pid, (int)getpid());
+		}
 		kill(pid, SIGKILL);
 		while( waitpid(pid,NULL,0) < 0 && errno == EINTR ) {
 			/* NOOP */
@@ -753,6 +759,9 @@ my_pclose_ex(FILE *fp, time_t timeout, bool kill_after_timeout)
 	// send a kill signal and wait for it to terminate
 	status = MYPCLOSE_EX_STILL_RUNNING;
 	if (kill_after_timeout) {
+		if (pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)pid, (int)getpid());
+		}
 		kill(pid,SIGKILL);
 		while (waitpid(pid,&status,0) < 0) {
 			if (errno != EINTR) {

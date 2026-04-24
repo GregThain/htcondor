@@ -119,6 +119,7 @@ $ExitSuccess = sub
 							"Test fails because pid $pidcheck should have ".
 							"been removed\n", 1);
 						$worked = "no";
+						if ($pidcheck < $$) { printf("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", $pidcheck, $$); }
 						runcmd("kill -9 $pidcheck");
 					}
 				}
@@ -130,6 +131,7 @@ $ExitSuccess = sub
 							"Test fails because pid $pidcheck should have ".
 							"been removed\n", 1);
 						$worked = "no";
+						if ($pidcheck < $$) { printf("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", $pidcheck, $$); }
 						runcmd("kill -9 $pidcheck");
 					}
 				}
@@ -150,6 +152,7 @@ $ExitSuccess = sub
 							"Test fails because pid $pidcheck should have ".
 							"been removed\n", 1);
 						$worked = "no";
+						if ($pidcheck < $$) { printf("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", $pidcheck, $$); }
 						runcmd("kill -9 $pidcheck");
 					}
 				}
@@ -161,6 +164,7 @@ $ExitSuccess = sub
 							"Test fails because pid $pidcheck should have ".
 							"been removed\n", 1);
 						$worked = "no";
+						if ($pidcheck < $$) { printf("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", $pidcheck, $$); }
 						runcmd("kill -9 $pidcheck");
 					}
 				}

@@ -1708,6 +1708,9 @@ VMProc::killProcessForVM()
 	if( m_vm_pid > 0 ) {
 		updateUsageOfVM();
 		dprintf(D_FULLDEBUG,"Sending SIGKILL to process for VM\n");
+		if (m_vm_pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)m_vm_pid, (int)getpid());
+		}
 		daemonCore->Send_Signal(m_vm_pid, SIGKILL);
 	}
 	return;

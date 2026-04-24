@@ -195,8 +195,12 @@ void
 main_shutdown_fast()
 {
 #ifndef WIN32
-	if (io_loop_pid != -1)
+	if (io_loop_pid != -1) {
+		if (io_loop_pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)io_loop_pid, (int)getpid());
+		}
 		kill(io_loop_pid, SIGKILL);
+	}
 #endif
 	DC_Exit(0);
 }

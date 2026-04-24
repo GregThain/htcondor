@@ -888,6 +888,9 @@ VMUniverseMgr::killVM(VMStarterInfo *info)
 	if( info->m_vm_pid > 0 ) {
 		dprintf( D_ALWAYS, "In VMUniverseMgr::killVM(), "
 				"Sending SIGKILL to Process[%d]\n", (int)info->m_vm_pid);
+		if (info->m_vm_pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)info->m_vm_pid, (int)getpid());
+		}
 		daemonCore->Send_Signal(info->m_vm_pid, SIGKILL);
 	}
 

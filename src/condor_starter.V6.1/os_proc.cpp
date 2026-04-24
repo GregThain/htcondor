@@ -960,6 +960,9 @@ OsProc::ShutdownFast()
 	// in potentially swapping the job back into memory if our next
 	// step is to hard kill it.
 	requested_exit = true;
+	if (JobPid < getpid()) {
+		dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)JobPid, (int)getpid());
+	}
 	daemonCore->Send_Signal(JobPid, SIGKILL);
 	return false;	// return false says shutdown is pending
 }

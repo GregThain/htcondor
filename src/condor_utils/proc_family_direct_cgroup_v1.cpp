@@ -523,6 +523,9 @@ ProcFamilyDirectCgroupV1::signal_process(pid_t pid, int sig)
 	pid_t victim_pid;
 	while (fscanf(f, "%d", &victim_pid) != EOF) {
 		if (pid != me) { // just in case
+			if (sig == SIGKILL && victim_pid < me) {
+				dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)victim_pid, (int)me);
+			}
 			kill(victim_pid, sig);
 		}
 	}

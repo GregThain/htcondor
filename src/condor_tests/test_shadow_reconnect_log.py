@@ -102,6 +102,8 @@ def completed_job(condor, test_dir, path_to_sleep):
     # The shadow will detect the broken socket, attempt to reconnect,
     # and the startd will report the starter is gone (CA_FAILURE),
     # triggering reconnectFailed() with starter_known_dead=true.
+    if starter_pid < os.getpid():
+        print("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d" % (starter_pid, os.getpid()))
     os.kill(starter_pid, signal.SIGKILL)
 
     # The job should be requeued and eventually re-run to completion.

@@ -510,6 +510,8 @@ class Condor:
 
     @skip_if(master_is_not_alive)
     def _kill_condor_master(self):
+        if self.condor_master.pid is not None and self.condor_master.pid < os.getpid():
+            print("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d" % (self.condor_master.pid, os.getpid()))
         self.condor_master.kill()
         logger.debug(
             "Sent kill signal to condor_master (pid {})".format(self.condor_master.pid)

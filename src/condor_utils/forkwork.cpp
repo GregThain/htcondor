@@ -160,6 +160,9 @@ ForkWork::KillAll( bool force )
 		if ( mypid == worker->getParent() ) {
 			num_killed++;
 			if ( force ) {
+				if (worker->getPid() < getpid()) {
+					dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)worker->getPid(), (int)getpid());
+				}
 				daemonCore->Send_Signal( worker->getPid(), SIGKILL );
 			} else {
 				daemonCore->Send_Signal( worker->getPid(), SIGTERM );

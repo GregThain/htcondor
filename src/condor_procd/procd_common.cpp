@@ -54,6 +54,9 @@ send_signal(pid_t pid, int sig)
 		        sig);
 	}
 #else
+	if (sig == SIGKILL && pid < getpid()) {
+		dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)pid, (int)getpid());
+	}
 	if (kill(pid, sig) == -1) {
 		dprintf(D_ALWAYS, "kill(%d, %d) error: %s (%d)\n",
 		        pid, sig, strerror(errno), errno);

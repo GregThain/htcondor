@@ -754,6 +754,9 @@ main_shutdown_graceful()
 	daemonCore->Cancel_And_Close_All_Pipes();
 
 	for (int i=0; i<NUMBER_WORKERS; i++) {
+		if (workers[i].pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)workers[i].pid, (int)getpid());
+		}
 		daemonCore->Send_Signal (workers[i].pid, SIGKILL);
 	}
 }

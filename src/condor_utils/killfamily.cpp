@@ -205,6 +205,9 @@ KillFamily::safe_kill(a_pid *pid, int sig)
 		}
 
 #else
+		if (sig == SIGKILL && inpid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)inpid, (int)getpid());
+		}
 		if ( kill(inpid,sig) < 0 ) {
 			dprintf(D_PROCFAMILY,
 				"KillFamily::safe_kill: kill(%d,%d) failed, errno=%d\n",
