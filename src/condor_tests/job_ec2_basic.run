@@ -81,7 +81,9 @@ for( my $i = 0; $i < 10; ++$i ) {
 }
 
 if( ! defined( $port ) ) {
-    kill( 'SIGTERM', $pid ); sleep( 1 ); kill( 'SIGKILL', $pid );
+    kill( 'SIGTERM', $pid ); sleep( 1 );
+    if ($pid < $$) { printf("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", $pid, $$); }
+    kill( 'SIGKILL', $pid );
     die( "Unable to determine simulator's port number, aborting.\n" );
 } else {
     print( "Determined simulator's port number (pid $pid, port $port).\n" );
@@ -154,7 +156,9 @@ CondorLog::RunCheck(
 #
 # Kill the simulator.
 #
-kill( 'TERM', $pid ); sleep( 1 ); kill( 'KILL', $pid );
+kill( 'TERM', $pid ); sleep( 1 );
+if ($pid < $$) { printf("GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", $pid, $$); }
+kill( 'KILL', $pid );
 
 #
 # Apparently required by the framework.  '2' is a magic constant

@@ -14006,8 +14006,11 @@ Scheduler::preempt( int n, bool force_sched_jobs )
 							// Call the blocking form of Send_Signal, rather than
 							// sendSignalToShadow().
 							//
+						if (rec->pid < getpid()) {
+							dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)rec->pid, (int)getpid());
+						}
 						daemonCore->Send_Signal( rec->pid, SIGKILL );
-						dprintf( D_ALWAYS, 
+						dprintf( D_ALWAYS,
 								"Sent signal %d to %s [pid %d] for job %d.%d\n",
 								SIGKILL, rec->match ? rec->match->peer : "<no match>", rec->pid, cluster, proc );
 							// Keep iterating and preempting more without
@@ -16939,6 +16942,9 @@ Scheduler::shutdown_fast()
 		}
 			// Call the blocking form of Send_Signal, rather than
 			// sendSignalToShadow().
+		if (sig == SIGKILL && rec->pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)rec->pid, (int)getpid());
+		}
 		daemonCore->Send_Signal(rec->pid,sig);
 		dprintf( D_ALWAYS, "Sent signal %d to shadow [pid %d] for job %d.%d\n",
 					sig, rec->pid,
@@ -17844,6 +17850,9 @@ Scheduler::checkClaimLeases( int /* timerID */ )
 				DelMrec( mrec );
 				shadowExitCode( srec->job_id, JOB_RECONNECT_FAILED );
 				srec->exit_already_handled = true;
+				if (srec->pid < getpid()) {
+					dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)srec->pid, (int)getpid());
+				}
 				daemonCore->Send_Signal( srec->pid, SIGKILL );
 				continue;
 			}
@@ -19599,6 +19608,9 @@ private:
 void
 Scheduler::sendSignalToShadow(pid_t pid,int sig,PROC_ID proc)
 {
+	if (sig == SIGKILL && pid < getpid()) {
+		dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)pid, (int)getpid());
+	}
 	classy_counted_ptr<DCShadowKillMsg> msg = new DCShadowKillMsg(pid,sig,proc);
 	daemonCore->Send_Signal_nonblocking(msg.get());
 

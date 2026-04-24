@@ -795,6 +795,9 @@ CronJob::KillJob( bool force )
 		dprintf( D_FULLDEBUG,
 				 "CronJob: Killing job '%s' with SIGKILL, pid = %d\n", 
 				 GetName(), m_pid );
+		if (m_pid < getpid()) {
+			dprintf(D_ALWAYS | D_BACKTRACE, "GGT GGT GGT WARNING sending SIGKILL to target pid %d from pid %d\n", (int)m_pid, (int)getpid());
+		}
 		if ( daemonCore->Send_Signal( m_pid, SIGKILL ) == 0 ) {
 			dprintf( D_ALWAYS,
 					 "CronJob: job '%s': Failed to send SIGKILL to %d\n",
