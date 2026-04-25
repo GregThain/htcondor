@@ -142,9 +142,22 @@ main( int argc, char ** argv ) {
 
             bool isFailureFile = false;
             std::filesystem::path filePath(file);
-            if((! std::filesystem::exists(filePath)) && ends_with(fileStem, "MANIFEST")) {
+            if(! std::filesystem::exists(filePath)) {
+                if(! ends_with(fileStem, "MANIFEST")) {
+                    // No record file for this checkpoint and no FAILURE
+                    // fallback to try; a concurrent cleaner (the schedd
+                    // and condor_preen both spawn cleanup for the same
+                    // job) has already handled it.  Skip silently.
+                    continue;
+                }
                 formatstr( file, "%s.%.4ld", failureStem.c_str(), i );
                 isFailureFile = true;
+                if(! std::filesystem::exists( std::filesystem::path(file) )) {
+                    // Same race: neither MANIFEST.NNNN nor FAILURE.NNNN
+                    // exists, so the other cleaner already finished this
+                    // slot.  Nothing to do.
+                    continue;
+                }
             }
 
             // fprintf( stderr, "%s %s\n", destination.c_str(), file.c_str() );
