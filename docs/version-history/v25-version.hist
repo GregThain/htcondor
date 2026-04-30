@@ -22,7 +22,8 @@
   ``-cancelceilinglease`` option cancels an in-effect lease.
   :jira:`3518`
 
- - The *condor_startd* has a new activity ``"Cleaning"`` on claimed slots.
+- The *condor_startd* has a new activity ``"Cleaning"`` on claimed slots.
+
 *** 25.11.0 bugs
 
 *** 25.0.11 bugs
@@ -31,7 +32,7 @@
   of its claims can cause the *condor_schedd* to crash.
   :jira:`3704`
 
-*** 25.10.0 features
+*** 25.10.1 features
 
 - Added ability to set DAGMan throttles via :tool:`htcondor dag throttle` and
   :meth:`htcondor2.DAGMan.throttle` while DAGMan is executing.
@@ -126,7 +127,7 @@
   the command line, if the submitter is an active submitter in the 
   *condor_collector* fallback to look again at the non-active 
   submitters in the negotiator.
-  :jira;`3283`
+  :jira:`3283`
 
 - :tool:`condor_qusers`, :tool:`condor_status`, and :tool:`condor_who` now supports an `-aaf` option, for append
   autoformat, which displays columns like the `-af` option does, but
@@ -137,7 +138,9 @@
   job exit.
   :jira:`3653`
 
-*** 25.10.0 bugs
+*** 25.10.1 bugs
+
+*** 25.0.10 features
 
 - Add Ubuntu 26.04 (Resolute Raccoon) support.
   :jira:`3703`
