@@ -194,6 +194,7 @@
 #define ATTR_DISK_USAGE_ENFORCED "IsEnforcingDiskUsage"
 #define ATTR_SCRATCH_DIR_FILE_COUNT "ScratchDirFileCount"
 #define ATTR_IS_SPLITTABLE "IsSplittable"
+#define ATTR_IS_TRANSFER_SHADOW "IsTransferShadow"
 #define ATTR_DOCKER_CACHED_IMAGE_SIZE "DockerCachedImageSizeMb"
 #define ATTR_DOCKER_IMAGE "DockerImage"
 #define ATTR_DOCKER_NETWORKS "DockerNetworks"

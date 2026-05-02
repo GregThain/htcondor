@@ -86,7 +86,7 @@ if (BUILD_TESTING)
 	endif()
 
     condor_exe( test_starter_guidance.exe
-        "../condor_starter.V6.1/starter_guidance.cpp;test_starter_guidance.cpp"
+        "../condor_starter.V6.1/starter_guidance.cpp;../condor_starter.V6.1/staging_directory.cpp;test_starter_guidance.cpp"
         "${C_LIBEXEC}"
         "${CONDOR_LIBS}"
         OFF
@@ -307,6 +307,11 @@ if (BUILD_TESTING)
 			condor_pl_test(job_filexfer_streamout_van "Vanilla: test for streaming of output when both stream_output is true and false" "quick;ctest" CTEST DEPENDS "src/condor_tests/x_job_filexfer_stream.pl")
 			condor_pl_test(test_shadow_reconnect_log "Test shadow reconnect CSV logging" "quick;ctest" CTEST DEPENDS "src/condor_tests/ornithology;src/condor_tests/conftest.py")
 			condor_pl_test(test_python_bindings_htcondor "Test that the Python htcondor bindings behave correctly" "quick;ctest" CTEST DEPENDS "src/condor_tests/ornithology;src/condor_tests/conftest.py")
+
+			if (HAVE_SQLITE3_H)
+				condor_pl_test(test_archive_librarian "Test basic librarian functionality" "quick;ctest" CTEST DEPENDS "src/condor_tests/ornithology;src/condor_tests/conftest.py")
+			endif()
+
 		endif()
 
 		# Ornithology - partial merge - Windows and MacOSX problems

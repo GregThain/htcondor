@@ -1,5 +1,9 @@
 *** 25.11.0 features
 
+- Introducing the :ref:`archive-librarian`. A new daemon that maintains an
+  SQLite3 database of indexes to historical job records located in an Access
+  Point's :macro:`HISTORY` archive.
+  :jira:`3143`
 - Scheduler universe jobs no longer have their argv[0] set to
   ``condor_scheduniv_exec.<cluster>.<proc>``, and instead preserve the
   executable name (``a_out_name``). This means that so-called "multibin"
