@@ -72,22 +72,20 @@ if [[ ${FROM} =~ ${FROM_REGEX} ]]; then
     # in them.  This won't delete directories which didn't have
     # files in them, though.
     #
-    # Using --parents with a relative path means we delete all
-    # subdirectories of ${DIR}.  We then delete ${DIR}/.. and
-    # ${DIR}/../.. because we know we've been given a ${DIR} with
-    # a trailing global job ID and then checkpoint number.
-    #
-    # We could call `rmdir --parents` on the absolute path, but
-    # that will (surprisingly) remove the directory chosen to
-    # store checkpoints if we remove the last checkpoint.
+    # Each rmdir is attempted independently and silently — non-empty
+    # or already-absent directories return non-zero, which is fine.
+    # The previous version gated the entire chain on the existence
+    # of ${DIR}${SUBDIR}, which under concurrent cleanup (shadow,
+    # schedd, condor_preen) would cause every invocation but the
+    # first to skip the rmdir of the global-job-ID directory.  When
+    # the first invocation ran while a sibling checkpoint dir still
+    # held data, the global-job-ID directory was never reclaimed.
     SUBDIR=$(dirname "${DELETE}")
-    if [[ -d ${DIR}${SUBDIR} ]]; then
-        cd "${DIR}"; rmdir -p "${SUBDIR}"
-        CHECKPOINT_NUMBER=$(basename "${DIR}")
-        cd ..; rmdir "${CHECKPOINT_NUMBER}"
-        GLOBAL_JOB_ID=$(basename "$(dirname "${DIR}")")
-        cd ..; rmdir "${GLOBAL_JOB_ID}"
-    fi
+    CHECKPOINT_NUMBER=$(basename "${DIR}")
+    GLOBAL_JOB_ID=$(basename "$(dirname "${DIR}")")
+    ( cd "${DIR}" && rmdir -p "${SUBDIR}" ) 2>/dev/null
+    ( cd "${DIR}/.." && rmdir "${CHECKPOINT_NUMBER}" ) 2>/dev/null
+    ( cd "${DIR}/../.." && rmdir "${GLOBAL_JOB_ID}" ) 2>/dev/null
 
     exit 0
 else

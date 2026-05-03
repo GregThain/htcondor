@@ -145,6 +145,17 @@ main( int argc, char ** argv ) {
             if((! std::filesystem::exists(filePath)) && ends_with(fileStem, "MANIFEST")) {
                 formatstr( file, "%s.%.4ld", failureStem.c_str(), i );
                 isFailureFile = true;
+                // If neither MANIFEST.NNNN nor FAILURE.NNNN exists for this
+                // checkpoint number, treat it as already-cleaned-up rather
+                // than as a failure. This race is expected: the shadow
+                // cleans up failed checkpoints synchronously while a job
+                // runs, and the schedd and condor_preen may both attempt
+                // final cleanup. Reporting a missing manifest as a failure
+                // makes the parent process believe cleanup failed even
+                // though the post-condition (the files are gone) holds.
+                if(! std::filesystem::exists(std::filesystem::path(file))) {
+                    continue;
+                }
             }
 
             // fprintf( stderr, "%s %s\n", destination.c_str(), file.c_str() );
