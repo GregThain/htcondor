@@ -1320,11 +1320,6 @@ default=true
 type=bool
 tags=daemon_core
 
-[SEC_INVALIDATE_SESSIONS_VIA_TCP]
-default=true
-type=bool
-tags=daemon_core
-
 [SEC_USE_FAMILY_SESSION]
 default=true
 type=bool
