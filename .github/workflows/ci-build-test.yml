@@ -220,6 +220,16 @@ jobs:
           sleep 50
           condor_status
 
+      - name: Upload All on Failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-output-for-ubuntu-installed
+          path: /var/log/condor
+          retention-days: 2
+          overwrite: true
+
+
   ubuntu_root:
     # Run on raw ubuntu, no container
     runs-on: ubuntu-latest
