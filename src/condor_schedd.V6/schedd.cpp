@@ -10474,7 +10474,8 @@ Scheduler::StartJob(match_rec *rec)
 		id.proc = rec->proc;
 	}
 
-	if(! StartJob(rec, id)) {
+	auto result = StartJob(rec, id);
+	if( result != SJ::SUCCEEDED ) {
 
 			// Start job failed. Throw away the match. The reason being that we
 			// don't want to keep a match around and pay for it if it's not
@@ -10508,7 +10509,7 @@ Scheduler::StartJob(match_rec *rec)
 
 			/* We want to send some email to the administrator
 			   about this.  We only want to do it once, though. */
-		if ( !sent_shadow_failure_email ) {
+		if ( (result != SJ::DID_NOT_TRY) && (!sent_shadow_failure_email) ) {
 			sent_shadow_failure_email = TRUE;
 			FILE *email = email_admin_open("Failed to start shadow.");
 			if( email ) {
@@ -10865,7 +10866,7 @@ Scheduler::IsLocalJobEligibleToRun(JobQueueJob* job) {
 	return true;
 }
 
-bool
+SJ
 Scheduler::StartJob(match_rec* mrec, const PROC_ID & job_id)
 {
 	int		universe = -1;
@@ -10974,7 +10975,7 @@ Scheduler::StartJob(match_rec* mrec, const PROC_ID & job_id)
 				set_job_status( job_id.cluster, job_id.proc, JOB_STATUS_BLOCKED );
 
 
-				return true;
+				return SJ::SUCCEEDED;
 			}
 
 		// Some other shadow is staging this job's cxfers to this slot.
@@ -11006,7 +11007,7 @@ Scheduler::StartJob(match_rec* mrec, const PROC_ID & job_id)
 				matchesHeldByBlockedJobs.push_back(mrec);
 
 				mrec->shadowRec = job_shadow_rec;
-				return true;
+				return SJ::SUCCEEDED;
 			}
 
 		// This job's common file catalog(s) are already on this slot.
@@ -11030,7 +11031,7 @@ Scheduler::StartJob(match_rec* mrec, const PROC_ID & job_id)
 				addRunnableJob( job_shadow_rec );
 
 				mrec->shadowRec = job_shadow_rec;
-				return true;
+				return SJ::SUCCEEDED;
 			}
 
 		// At least one of the shadows providing catalogs for this job
@@ -11039,12 +11040,12 @@ Scheduler::StartJob(match_rec* mrec, const PROC_ID & job_id)
 		// which deletes the match record, etc, if we return false.)
 		case CXFER_TYPE::RETIRING:
 			dprintf( D_ALWAYS, "cxfer %d.%d: RETIRING.\n", job_id.cluster, job_id.proc );
-			return false;
+			return SJ::DID_NOT_TRY;
 	}
 
 
 	mrec->shadowRec = start_std( mrec, job_id, universe );
-	return mrec->shadowRec != NULL;
+	return mrec->shadowRec != NULL ? SJ::SUCCEEDED : SJ::FAILED;
 }
 
 
