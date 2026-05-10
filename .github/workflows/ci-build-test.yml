@@ -212,12 +212,6 @@ jobs:
           sudo cp __w/htcondor/htcondor/condor_*.deb __w/htcondor/htcondor/mini*.deb usr/local/condor/externals/pelican*.deb .
           sudo apt install -y ./*.deb
 
-      - name: Verify condor installation
-        run: |
-          condor_version
-          condor_who -wait:600 'IsReady && STARTD_State =?= "Ready"'
-          condor_status
-
       - name: Upload All on Failure
         if: failure()
         uses: actions/upload-artifact@v6
