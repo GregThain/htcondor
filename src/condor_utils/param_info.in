@@ -4891,6 +4891,12 @@ type=int
 description=Maximum number of seconds to wait for a file-transfer plug-in to finish.
 tags=file_transfer
 
+[STARTER_DISABLE_USER_SUPPLIED_TRANSFER_PLUGINS]
+default=
+version=25.11
+description=Conditionally disable user-supplied transfer plugins, MY is slot and TARGET is job.
+tags=file_transfer
+
 [TRANSFER_IO_REPORT_INTERVAL]
 default=10
 version=7.9.4
@@ -5120,6 +5126,12 @@ range=0,
 default=100
 type=int
 range=0,
+
+[MAX_CONCURRENT_UPLOADS_PER_USER]
+default=$(MAX_CONCURRENT_UPLOADS:100)/5
+type=int
+range=0,
+
 
 [FILE_TRANSFER_DISK_LOAD_THROTTLE]
 default=2.0
