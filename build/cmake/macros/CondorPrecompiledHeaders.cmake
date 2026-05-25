@@ -30,7 +30,7 @@ MACRO(ADD_PRECOMPILED_HEADER)
   # Once we figure out how to safely use the same precompiled 
   # header across targets, we could lower the source
   # file count from 90 to something much less, like 5.
-  if (MSVC AND (${_SRCS_LENGTH} GREATER 90))
+  if (MSVC_IDE AND (${_SRCS_LENGTH} GREATER 90))
 
 	dprint("Will use precompiled headers for this target")
   
