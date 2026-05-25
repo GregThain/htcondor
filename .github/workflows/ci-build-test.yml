@@ -154,6 +154,15 @@ jobs:
       - name: build
         run: (cmake --build . --verbose --config Release --parallel 4)
 
+      - name: Upload All on Failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-buid-failure
+          retention-days: 1
+          overwrite: true
+
+
   resolve-ubunturoot-image:
     runs-on: ubuntu-latest
     outputs:
