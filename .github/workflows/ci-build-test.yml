@@ -163,7 +163,7 @@ jobs:
 
       - name: ctests
         run: |
-          cd __build && ctest -R job_core_args_van
+          cd __build && ctest -V -R job_core_args_van
 
   resolve-ubunturoot-image:
     runs-on: ubuntu-latest
