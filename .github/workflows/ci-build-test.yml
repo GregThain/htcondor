@@ -160,6 +160,10 @@ jobs:
         run: |
           cd __build && cmake --build . --verbose --config Release --parallel 4
 
+      - name: ctests
+        run: |
+          cd __build && ctest -R job_core_args_van
+
   resolve-ubunturoot-image:
     runs-on: ubuntu-latest
     outputs:
