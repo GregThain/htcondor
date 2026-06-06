@@ -140,7 +140,7 @@ jobs:
       - name: Install perl
         uses: shogo82148/actions-setup-perl@v1
         with:
-          distribution: strawberry
+          distribution: default
 
       - name: Install/Upgrade python
         uses: actions/setup-python@v6
