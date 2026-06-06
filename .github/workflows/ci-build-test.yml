@@ -158,7 +158,7 @@ jobs:
 
       - name: build
         run: |
-          cd __build && cmake --build .. --verbose --config Release --parallel 4
+          cd __build && cmake --build . --verbose --config Release --parallel 4
 
   resolve-ubunturoot-image:
     runs-on: ubuntu-latest
