@@ -178,6 +178,9 @@ def main():
         os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "../msconfig")
         os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "bin")
         os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "../src/condor_tests")
+        print("GGT\n")
+        print(os.environ["PATH"])
+        pirnt("GGT\n")
     else:
         os.environ["PATH"] = os.pathsep.join(
             [
