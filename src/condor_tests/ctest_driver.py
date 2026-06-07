@@ -182,6 +182,9 @@ def main():
         os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "..\\src\\condor_tests")
         print("GGT\n")
         print(os.environ["PATH"])
+        print("GGT running condor_who\n")
+        os.system("condor_who")
+        print("GGT done running condor_who\n")
     else:
         os.environ["PATH"] = os.pathsep.join(
             [
