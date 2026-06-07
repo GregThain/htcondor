@@ -350,6 +350,7 @@ sub DoChild
     if(exists($needs->{personal})) {
         print "run_test $$: $testname requires a running HTCondor, checking...\n";
         print "\tCONDOR_CONFIG=$ENV{CONDOR_CONFIG}\n";
+		print "\t GGT GGT GGT PATH is\n:$ENV{PATH}\n";
         my @whodata = `condor_who -quick 2>&1`;
         my $alive = "false";
         my $not_alive_reason = "Condor not running";
