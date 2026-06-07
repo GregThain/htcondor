@@ -168,6 +168,15 @@ jobs:
         run: |
           cd __build && ctest -V -R job_core_args_van
 
+      - name: Upload All on Failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: wintest-output
+          path: __build/src/condor_tests
+          retention-days: 2
+          overwrite: true
+
   resolve-ubunturoot-image:
     runs-on: ubuntu-latest
     outputs:
