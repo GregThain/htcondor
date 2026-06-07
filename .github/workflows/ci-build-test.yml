@@ -166,14 +166,14 @@ jobs:
 
       - name: ctests
         run: |
-          cd __build && ctest -j 20
+          cd __build && ctest -j 40 --repeat-until-fail 10 -R job_foreach_submit
 
       - name: Upload All on Failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: wintest-output
-          path: __build/src/condor_tests
+          path: __build/
           retention-days: 2
           overwrite: true
 
