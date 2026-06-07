@@ -104,6 +104,8 @@ def write_base_config(prefix_path, java=False):
 def main():
     args = parse_args()
 
+    args.prefix_path = os.path.normpath(args.prefix_path)
+
     rundir_parent = os.path.abspath(
         os.path.join(args.working_dir, "src", "condor_tests")
     )
@@ -175,9 +177,9 @@ def main():
             pass
 
     if platform.system() == "Windows":
-        os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "../msconfig")
+        os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "..\\msconfig")
         os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "bin")
-        os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "../src/condor_tests")
+        os.environ["PATH"] += ";" + os.path.join(args.prefix_path, "..\\src\\condor_tests")
         print("GGT\n")
         print(os.environ["PATH"])
     else:
