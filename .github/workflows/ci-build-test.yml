@@ -148,7 +148,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install CPAN Modules
-        run: cpanm --notest Win32::Process
+        run: cpanm --notest Win32::Process Archive::Tar Data::Dumper Digest::MD5 Digest::SHA English Env File::Copy FindBin Net::Domain Sys::Hostname Time::HiRes XML::Parser
 
       - name: Install/Upgrade python and python accessories
         run: | 
