@@ -162,7 +162,7 @@ jobs:
 
       - name: build
         run: |
-          cd __build && cmake --build . --verbose --config Release --parallel 4
+          cd __build && cmake --build . --target install --verbose --config Release --parallel 4
 
       - name: ctests
         run: |
