@@ -350,7 +350,6 @@ sub DoChild
     if(exists($needs->{personal})) {
         print "run_test $$: $testname requires a running HTCondor, checking...\n";
         print "\tCONDOR_CONFIG=$ENV{CONDOR_CONFIG}\n";
-		print "\t GGT GGT GGT PATH is\n:$ENV{PATH}\n";
         my @whodata = `condor_who -quick 2>&1`;
         my $alive = "false";
         my $not_alive_reason = "Condor not running";
@@ -486,15 +485,14 @@ sub DoChild
 
     my $res;
     my $use_timed_cmd = 1; # use the timed_cmd helper binary to timeout the test and cleaup processes
-	# GGT GGT GGT
-	system("timed_cmd -h");
     if ($iswindows && $use_timed_cmd) {
         my $dtm = ""; if (defined $ENV{TIMED_CMD_DEBUG_WAIT}) {$dtm = ":$ENV{TIMED_CMD_DEBUG_WAIT}";}
         my $verb = ($hush == 0) ? "" : "-v";
         my $timeout = "-t 12M";
 		# $res = system("timed_cmd.exe -jcd$dtm $verb -o $runout $timeout $perl $test_program");
-		$res = system("timed_cmd.exe", "-jcd$dtm", $verb, "-o", $runout,
-                "-t", "12M", $perl, $test_program);
+		# GGT
+		print("GGT GGT GGT running "timed_cmd.exe $perl $test_program \n");
+		$res = system("timed_cmd.exe", $perl, $test_program);
     } else {
         if( $hush == 0 ) { debug( "Child Starting: $perl $test_program > $runout\n",6); }
         $res = system("$perl $test_program > $runout 2>&1");
