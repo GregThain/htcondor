@@ -186,6 +186,9 @@ jobs:
           reg add "%L%" /v DumpType   /t REG_DWORD     /d 2          /f
           reg add "%L%" /v DumpFolder /t REG_EXPAND_SZ /d C:\dumps   /f
           reg add "%L%" /v DumpCount  /t REG_DWORD     /d 10         /f
+          set "K=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\condor_starter.exe"
+          reg add "%K%" /v GlobalFlag    /t REG_DWORD /d 0x02000000 /f
+          reg add "%K%" /v PageHeapFlags /t REG_DWORD /d 0x3        /f
 
       - name: ctests
         run: |
@@ -197,7 +200,7 @@ jobs:
         with:
           name: wintest-output
           path: |
-            C:\dumps
+            C:\dumps\
             __build/
           retention-days: 2
           overwrite: true
