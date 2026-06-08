@@ -147,6 +147,18 @@ jobs:
         with:
           distribution: default
 
+      - name: Set up .pl File Association
+        shell: cmd
+        run: |
+          :: Associate the .pl extension with the PerlScript file type
+          assoc .pl=PerlScript
+          
+          :: Define the command to execute the Perl interpreter
+          ftype PerlScript=perl.exe "%1" %*
+          
+          :: Add .PL to the system PATHEXT so Windows executes it like a standard program
+          setx PATHEXT "%PATHEXT%;.PL"
+
       - name: Install/Upgrade python
         uses: actions/setup-python@v6
         with:
