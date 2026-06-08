@@ -19,6 +19,7 @@
 
 #include "condor_common.h"
 #include <tchar.h>
+#include <dbghelp.h>
 #include "exception_handling.WINDOWS.h"
 
 #include "condor_debug.h"
@@ -122,13 +123,85 @@ LONG WINAPI ExceptionHandler::MSJUnhandledExceptionFilter(
 		dprintf ( D_ALWAYS, "Dropping a core file.\n" );
         // SetFilePointer( m_hReportFile, 0, 0, FILE_END );
         GenerateExceptionReport( pExceptionInfo );
-        CloseHandle( m_hReportFile );        
-		m_hReportFile = 0;    
+        CloseHandle( m_hReportFile );
+		m_hReportFile = 0;
 	}
-    if ( m_previousFilter )        
+
+	// Also write a real minidump (.dmp) for postmortem analysis in a debugger.
+	WriteMiniDump( pExceptionInfo );
+
+    if ( m_previousFilter )
 		return m_previousFilter( pExceptionInfo );
-    else        
+    else
 		return EXCEPTION_CONTINUE_SEARCH;
+}
+
+//===========================================================================
+// Write a full-memory minidump alongside the textual report.  We load
+// MiniDumpWriteDump from DBGHELP.DLL dynamically so we don't add a link-time
+// dependency (the same approach used for IMAGEHLP.DLL above).
+//===========================================================================
+void ExceptionHandler::WriteMiniDump( PEXCEPTION_POINTERS pExceptionInfo )
+{
+	HMODULE hDbgHelp = LoadLibrary( _T("DBGHELP.DLL") );
+	if ( ! hDbgHelp ) {
+		dprintf( D_ALWAYS, "Could not load DBGHELP.DLL; no minidump written.\n" );
+		return;
+	}
+
+	typedef BOOL (WINAPI * MINIDUMPWRITEDUMPPROC)(
+		HANDLE, DWORD, HANDLE, MINIDUMP_TYPE,
+		PMINIDUMP_EXCEPTION_INFORMATION,
+		PMINIDUMP_USER_STREAM_INFORMATION,
+		PMINIDUMP_CALLBACK_INFORMATION );
+	MINIDUMPWRITEDUMPPROC pMiniDumpWriteDump =
+		(MINIDUMPWRITEDUMPPROC) GetProcAddress( hDbgHelp, "MiniDumpWriteDump" );
+	if ( ! pMiniDumpWriteDump ) {
+		dprintf( D_ALWAYS, "DBGHELP.DLL has no MiniDumpWriteDump; no minidump written.\n" );
+		FreeLibrary( hDbgHelp );
+		return;
+	}
+
+	// Write the dump next to the textual report, with a .dmp extension appended.
+	TCHAR szDumpName[MAX_PATH + 16];
+	_sntprintf( szDumpName, COUNTOF(szDumpName), _T("%s.dmp"), m_szLogFileName );
+	szDumpName[COUNTOF(szDumpName)-1] = _T('\0');
+
+	HANDLE hDumpFile = CreateFile( szDumpName, GENERIC_WRITE, 0, NULL,
+	                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
+	if ( hDumpFile == INVALID_HANDLE_VALUE ) {
+		dprintf( D_ALWAYS, "Could not create minidump file %s (err=%lu).\n",
+		         szDumpName, GetLastError() );
+		FreeLibrary( hDbgHelp );
+		return;
+	}
+
+	MINIDUMP_EXCEPTION_INFORMATION mdei;
+	mdei.ThreadId          = GetCurrentThreadId();
+	mdei.ExceptionPointers = pExceptionInfo;
+	mdei.ClientPointers    = FALSE;
+
+	// MiniDumpWithFullMemory is required so the dump contains the heap; with
+	// page-heap enabled this is what lets "!heap -p -a <addr>" recover a
+	// block's allocation and free stacks.
+	MINIDUMP_TYPE mdt = (MINIDUMP_TYPE)(
+		MiniDumpWithFullMemory     |
+		MiniDumpWithFullMemoryInfo |
+		MiniDumpWithHandleData     |
+		MiniDumpWithThreadInfo );
+
+	BOOL ok = pMiniDumpWriteDump( GetCurrentProcess(), GetCurrentProcessId(),
+	                              hDumpFile, mdt, &mdei, NULL, NULL );
+
+	CloseHandle( hDumpFile );
+	FreeLibrary( hDbgHelp );
+
+	if ( ok ) {
+		dprintf( D_ALWAYS, "Wrote minidump to %s\n", szDumpName );
+	} else {
+		dprintf( D_ALWAYS, "MiniDumpWriteDump to %s failed (err=%lu).\n",
+		         szDumpName, GetLastError() );
+	}
 }
 //===========================================================================
 // Open the report file, and write the desired information to it.  Called by 

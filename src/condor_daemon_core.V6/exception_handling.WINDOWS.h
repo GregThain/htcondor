@@ -37,8 +37,13 @@ class ExceptionHandler {
       // entry point where control comes on an unhandled exception
       static LONG WINAPI MSJUnhandledExceptionFilter(
                                            PEXCEPTION_POINTERS pExceptionInfo );
-      // where report info is extracted and generated    
+      // where report info is extracted and generated
       static void GenerateExceptionReport( PEXCEPTION_POINTERS pExceptionInfo );
+      // writes a full-memory minidump (.dmp) next to the textual report so the
+      // crash can be loaded into a debugger.  Full memory is required so that,
+      // when page-heap is enabled, "!heap -p -a" can recover allocation/free
+      // stacks for heap corruption / use-after-free analysis.
+      static void WriteMiniDump( PEXCEPTION_POINTERS pExceptionInfo );
       // Helper functions      
       static BOOL GetLogicalAddress(PVOID addr, PTSTR szModule, DWORD len, DWORD& section, UINT_PTR& offset );
       static void SimpleStackWalk( PCONTEXT pContext );
