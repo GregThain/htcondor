@@ -1068,7 +1068,7 @@ condor_pl_test(job_dagman_subdag_in_splice-A "Test a sub-DAG inside a splice -- 
 		# in this usual way.
 		add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/timed_cmd.exe
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp
-			COMMAND cl /O1 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp)
+			COMMAND cl /O0 /GS- ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp)
 		add_custom_target(timed_cmd_exe ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/timed_cmd.cpp ${CMAKE_CURRENT_BINARY_DIR}/timed_cmd.exe)
 		add_dependencies(timed_cmd_exe BLD_TESTS)
 		set_target_properties(timed_cmd_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TEST_TARGET_DIR})
