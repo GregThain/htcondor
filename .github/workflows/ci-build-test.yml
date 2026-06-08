@@ -171,7 +171,7 @@ jobs:
 
       - name: ctests
         run: |
-          cd __build && ctest -j 40 --repeat-until-fail 10 -R job_foreach_submit
+          cd __build && ctest -V -j 40 -R job_foreach_submit
 
       - name: Upload All on Failure
         if: failure()
