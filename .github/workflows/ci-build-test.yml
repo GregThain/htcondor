@@ -167,11 +167,11 @@ jobs:
 
       - name: build
         run: |
-          cd __build && cmake --build . --config Debug --target install --verbose --config Release --parallel 4
+          cd __build && cmake --build . --target install --verbose --config Release --parallel 4
 
       - name: ctests
         run: |
-          cd __build && ctest -V -j 40 -R job_foreach_submit-initialdir
+          cd __build && ctest -V -j 40 -R cmd_
 
       - name: Upload All on Failure
         if: failure()
