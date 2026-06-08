@@ -163,7 +163,7 @@ jobs:
         run: |
           mkdir __build
           #cd __build && cmake -G "Visual Studio 17 2022" -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
-          cd __build && cmake -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
+          cd __build && cmake -GNinja -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
 
       - name: build
         run: |
@@ -171,8 +171,8 @@ jobs:
 
       - name: ctests
         run: |
-          # cd __build && ctest -j 40 --repeat-until-fail 10 -R job_foreach_submit
-          cd __build && ctest -j 40 
+          cd __build && ctest -j 40 --repeat-until-fail 10 -R job_foreach_submit
+          #cd __build && ctest -j 40 
 
       - name: Upload All on Failure
         if: failure()
