@@ -177,6 +177,16 @@ jobs:
         run: |
           cd __build && cmake --build . --target install --verbose --config Release --parallel 4
 
+      - name: test debugging
+        shell: cmd
+        run: |
+          md C:\dumps 2>nul
+          icacls C:\dumps /grant "Users:(OI)(CI)M" /grant "Everyone:(OI)(CI)M"
+          set "L=HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\condor_starter.exe"
+          reg add "%L%" /v DumpType   /t REG_DWORD     /d 2          /f
+          reg add "%L%" /v DumpFolder /t REG_EXPAND_SZ /d C:\dumps   /f
+          reg add "%L%" /v DumpCount  /t REG_DWORD     /d 10         /f
+
       - name: ctests
         run: |
           cd __build && ctest -j 40 --repeat-until-fail 20 -R job_foreach
@@ -186,7 +196,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: wintest-output
-          path: __build/
+          path: |
+            C:\dumps
+            __build/
           retention-days: 2
           overwrite: true
 
