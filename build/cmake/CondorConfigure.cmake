@@ -509,7 +509,7 @@ if("${OS_NAME}" STREQUAL "LINUX")
 
 	# Our fedora build is almost warning-clean.  Let's keep
 	# it that way.
-	if (EXISTS "/etc/fedora-release") 
+	if (EXISTS "/etc/fedora-releasexxx") 
 		set (CMAKE_COMPILE_WARNING_AS_ERROR ON)
 	endif()
 
@@ -574,11 +574,23 @@ endif()
 set(CMAKE_MACOSX_RPATH OFF)
 
 if (WITH_ADDRESS_SANITIZER)
-	# Condor daemons dup stderr to /dev/null, so to see output need to run with
-	# ASAN_OPTIONS="log_path=/tmp/asan" condor_master 
-	add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
-	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+	if (WINDOWS)
+		# MSVC spells the AddressSanitizer flag /fsanitize=address and does not
+		# understand the gcc/clang -fno-omit-frame-pointer spelling.  The linker
+		# picks up the ASan runtime automatically, but incremental linking is
+		# incompatible and must be disabled.
+		add_compile_options(/fsanitize=address)
+		string(REPLACE "/INCREMENTAL" "/INCREMENTAL:NO" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+		string(REPLACE "/INCREMENTAL" "/INCREMENTAL:NO" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL:NO")
+		set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /INCREMENTAL:NO")
+	else()
+		# Condor daemons dup stderr to /dev/null, so to see output need to run with
+		# ASAN_OPTIONS="log_path=/tmp/asan" condor_master
+		add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+		set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+	endif()
 endif()
 
 if (WITH_UB_SANITIZER)

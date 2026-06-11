@@ -171,13 +171,15 @@ jobs:
         run: |
           mkdir __build
           #cd __build && cmake -G "Visual Studio 17 2022" -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
-          cd __build && cmake -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
+          cd __build && cmake -DWITH_ADDRESS_SANITIZER:bool=true -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
 
       - name: build
         run: |
           cd __build && cmake --build . --target install --verbose --config Release --parallel 4
       - name: ctests
         run: |
+          $env:ASAN_OPTIONS = "log_path=$pwd/__build/asan.log:exit_code=0"
+          $env:LSAN_OPTIONS = "log_path=$pwd/__build/lsan.log:exit_code=0"
           cd __build && ctest -j 40 --repeat-until-fail 20 -R job_foreach
 
       - name: Upload All on Failure
