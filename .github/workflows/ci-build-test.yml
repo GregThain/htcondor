@@ -180,7 +180,7 @@ jobs:
         run: |
           $env:ASAN_OPTIONS = "log_path=$pwd/__build/asan.log:exit_code=0"
           $env:LSAN_OPTIONS = "log_path=$pwd/__build/lsan.log:exit_code=0"
-          cd __build && ctest -j 40 --repeat-until-fail 20 -R job_foreach
+          cd __build && ctest -V -j 40 --repeat-until-fail 20 -R job_foreach
 
       - name: Upload All on Failure
         if: failure()
