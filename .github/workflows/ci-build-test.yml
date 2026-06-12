@@ -191,6 +191,12 @@ jobs:
           $env:LSAN_OPTIONS = "log_path='$pwd/__build/lsan.log':exit_code=0"
           cd __build && ctest -j 40 --repeat-until-fail 1 -R job_foreach
 
+      - name: block upload until everything gone
+        if: failure()
+        run: |
+          # Wait for a bit to let processes die down, which should help the upload step not fail due to file contention with running processes
+          Start-Sleep -Seconds 300
+
       - name: Upload All on Failure
         if: failure()
         uses: actions/upload-artifact@v6
