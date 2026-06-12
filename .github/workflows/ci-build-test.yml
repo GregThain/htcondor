@@ -195,7 +195,8 @@ jobs:
         if: failure()
         run: |
           # Wait for a bit to let processes die down, which should help the upload step not fail due to file contention with running processes
-          Start-Sleep -Seconds 300
+          Start-Sleep -Seconds 30
+          Get-CimInstance Win32_Process | ? ExecutablePath -like "$pwd\__build\*" | % { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
 
       - name: Upload All on Failure
         if: failure()
