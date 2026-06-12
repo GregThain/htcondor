@@ -175,7 +175,7 @@ jobs:
 
       - name: build
         run: |
-          cd __build && cmake --build . --target install --verbose --config Release --parallel 4
+          cd __build && cmake --build . --target install --verbose --config Debug --parallel 4
       - name: Copy ASan runtime DLLs to release_dir/bin
         run: |
           $bin = "$pwd/__build/release_dir/bin"
@@ -184,6 +184,17 @@ jobs:
           foreach ($dll in $dlls) {
             Write-Host "Copying $($dll.FullName) to $bin"
             Copy-Item -Path $dll.FullName -Destination $bin -Force
+          }
+      - name: Copy PDBs to release_dir/bin for ASan symbolization
+        run: |
+          # The Debug build emits PDBs in the build tree, but install does not
+          # copy them next to the binaries in release_dir/bin.  Without the PDB
+          # alongside the .exe the runtime ASan symbolizer can't resolve frames
+          # and falls back to nearest-export names (e.g. OPENSSL_Applink).
+          $bin = "$pwd/__build/release_dir/bin"
+          $pdbs = Get-ChildItem -Path "$pwd/__build" -Recurse -Filter "*.pdb" -ErrorAction SilentlyContinue
+          foreach ($pdb in $pdbs) {
+            Copy-Item -Path $pdb.FullName -Destination $bin -Force -ErrorAction SilentlyContinue
           }
       - name: ctests
         run: |

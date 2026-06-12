@@ -580,6 +580,11 @@ if (WITH_ADDRESS_SANITIZER)
 		# picks up the ASan runtime automatically, but incremental linking is
 		# incompatible and must be disabled.
 		add_compile_options(/fsanitize=address)
+		# MSVC's Debug config adds /RTC1, which is incompatible with
+		# /fsanitize=address (cl emits error D8016).  Strip it so an ASan
+		# Debug build compiles.
+		string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+		string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 		string(REPLACE "/INCREMENTAL" "/INCREMENTAL:NO" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 		string(REPLACE "/INCREMENTAL" "/INCREMENTAL:NO" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL:NO")
