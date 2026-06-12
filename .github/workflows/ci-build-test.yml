@@ -176,10 +176,19 @@ jobs:
       - name: build
         run: |
           cd __build && cmake --build . --target install --verbose --config Release --parallel 4
+      - name: Copy ASan runtime DLLs to release_dir/bin
+        run: |
+          $bin = "$pwd/__build/release_dir/bin"
+          $vsRoot = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dlls = Get-ChildItem -Path $vsRoot -Recurse -Filter "clang_rt.asan*.dll" -ErrorAction SilentlyContinue
+          foreach ($dll in $dlls) {
+            Write-Host "Copying $($dll.FullName) to $bin"
+            Copy-Item -Path $dll.FullName -Destination $bin -Force
+          }
       - name: ctests
         run: |
-          $env:ASAN_OPTIONS = "log_path=$pwd/__build/asan.log:exit_code=0"
-          $env:LSAN_OPTIONS = "log_path=$pwd/__build/lsan.log:exit_code=0"
+          $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
+          $env:LSAN_OPTIONS = "log_path='$pwd/__build/lsan.log':exit_code=0"
           cd __build && ctest -V -j 40 --repeat-until-fail 20 -R job_foreach
 
       - name: Upload All on Failure
