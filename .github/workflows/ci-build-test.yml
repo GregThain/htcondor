@@ -193,13 +193,12 @@ jobs:
           # and falls back to nearest-export names (e.g. OPENSSL_Applink).
           $bin = "$pwd/__build/release_dir/bin"
           $pdbs = Get-ChildItem -Path "$pwd/__build" -Recurse -Filter "*.pdb" -ErrorAction SilentlyContinue
-          foreach ($pdb in $pdbs) {
-            Copy-Item -Path $pdb.FullName -Destination $bin -Force -ErrorAction SilentlyContinue
-          }
+          #foreach ($pdb in $pdbs) {
+          #  Copy-Item -Path $pdb.FullName -Destination $bin -Force -ErrorAction SilentlyContinue
+          #}
       - name: ctests
         run: |
           $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
-          $env:LSAN_OPTIONS = "log_path='$pwd/__build/lsan.log':exit_code=0"
           cd __build && ctest -j 40 --repeat-until-fail 1 -R job_foreach
 
       - name: block upload until everything gone
