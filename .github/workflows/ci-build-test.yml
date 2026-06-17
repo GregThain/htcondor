@@ -171,8 +171,8 @@ jobs:
       - name: cmake configuration
         run: |
           mkdir __build
-          #cd __build && cmake -G "Visual Studio 17 2022" -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
-          cd __build && cmake -DWITH_ADDRESS_SANITIZER:bool=true -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
+          #cd __build && cmake -G "Visual Studio 18 2026" -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
+          cd __build && cmake -G "Visual Studio 18 2026" -DWITH_ADDRESS_SANITIZER:bool=true -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
 
       - name: build
         run: |
