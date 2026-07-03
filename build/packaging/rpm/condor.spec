@@ -251,7 +251,11 @@ Requires: pelican-osdf-compat >= 7.25.0
 # Unfortunately, Apptainer is lagging behind on openSUSE 15
 Requires: apptainer >= 1.4.5
 %else
+%if 0%{?rhel} == 10
+Requires: apptainer >= 1.5.0
+%else
 Requires: apptainer >= 1.5.1
+%endif
 %endif
 %endif
 
@@ -365,6 +369,9 @@ Summary: HTCondor's VM Gahp
 Group: Applications/System
 Requires: %name = %version-%release
 Requires: libvirt
+%if 0%{?fedora} >= 35 || 0%{?rhel} >= 9 || 0%{?suse_version} >= 1600
+Requires: passt
+%endif
 
 %description vm-gahp
 The condor_vm-gahp enables the Virtual Machine Universe feature of
@@ -1220,6 +1227,7 @@ rm -rf %{buildroot}
 #################
 %files test
 %defattr(-,root,root,-)
+%_libexecdir/condor/ccb_proxy_bench
 %_libexecdir/condor/condor_sinful
 %_libexecdir/condor/condor_testingd
 %_libexecdir/condor/test_user_mapping
