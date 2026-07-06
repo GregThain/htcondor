@@ -216,7 +216,7 @@ if (BUILD_TESTING)
 		add_dependencies(job_core_rmkillsig_sched x_trapsig.exe)
 	endif()
 
-	condor_pl_test( protocol_matching "test: Protocol matching" "quick;ctest" CTEST DEPENDS ${CMAKE_BINARY_DIR}/src/condor_tests/test_protocol_matching)
+	condor_pl_test( protocol_matching "test: Protocol matching" "quick;ctest" CTEST DEPENDS $<TARGET_FILE:test_protocol_matching>)
 	add_dependencies(protocol_matching test_protocol_matching)
 
 	condor_pl_test(cmd_condor_off-master "vanilla: condor_on condor_off test" "quick;ctest" CTEST DEPENDS "src/condor_tests/x_sleep.pl")
