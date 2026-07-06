@@ -208,7 +208,7 @@ if (BUILD_TESTING)
 
 	# negative matches. test on everything but this
 	if(NOT WINDOWS)
-		condor_pl_test(unit_test_sinful "unit: Sinful" "quick;ctest" CTEST DEPENDS "src/condor_tests/NetworkTestConfigs.pm;${CMAKE_BINARY_DIR}/src/condor_tests/test_sinful")
+		condor_pl_test(unit_test_sinful "unit: Sinful" "quick;ctest" CTEST DEPENDS "src/condor_tests/NetworkTestConfigs.pm;$<TARGET_FILE:test_sinful>")
 		add_dependencies(unit_test_sinful test_sinful)
 		condor_pl_test(job_core_killsignal_sched "Scheduler: Verify the specified input file is used" "quick;ctest" CTEST DEPENDS "src/condor_tests/job_core_killsignal_sched.cmd;${CMAKE_BINARY_DIR}/src/condor_tests/x_trapsig.exe")
 		add_dependencies(job_core_killsignal_sched x_trapsig.exe)
