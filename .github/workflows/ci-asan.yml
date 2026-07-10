@@ -41,7 +41,7 @@ jobs:
 
       - name: Install CodeChecker via pip
         run: |
-          apt-get update && apt-get install -y python3-venv
+          apt-get update && apt-get install -y python3.12-venv
           python3 -m venv /opt/codechecker-venv
           /opt/codechecker-venv/bin/pip install --upgrade pip
           /opt/codechecker-venv/bin/pip install codechecker
