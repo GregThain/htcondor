@@ -46,8 +46,8 @@ jobs:
 
       - name: Install CodeChecker via pip
         run: |
-          python -m pip install --upgrade pip
-          pip install codechecker
+          python3 -m pip install --upgrade pip
+          pip3 install codechecker
 
       - name: Compile with Address Sanitizer
         run: |
