@@ -65,7 +65,7 @@ jobs:
         if: always()
         run: |
           mkdir -p $GITHUB_WORKSPACE/asan/output
-          report-converter -t asan -e sarif --output $GITHUB_WORKSPACE/asan/output $GITHUB_WORKSPACE/asan/condor*.log || true
+          report-converter -t asan -e sarif --output $GITHUB_WORKSPACE/asan/output $GITHUB_WORKSPACE/asan/condor.* || true
           ps auxww | grep [Cc]ondor_ | awk '{print $2}' | xargs -r kill -9
 
       - name: Upload Artifact with asan output
