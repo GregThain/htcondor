@@ -1820,6 +1820,20 @@ main (int argc, const char *argv[])
 	fflush(stdout);
 
 	delete query;
+
+	// TEMP (DO NOT MERGE): deliberate 1-byte heap-buffer-overflow to verify the
+	// AddressSanitizer -> report-converter -> SARIF pipeline in CI. With the
+	// job's ASAN_OPTIONS (log_path set, exitcode=0), ASan writes its report to
+	// the log file rather than stdout/stderr and exits 0, so condor_status
+	// output is unaffected and dependent tests still pass. Remove before merge.
+	{
+		volatile size_t n = 10;
+		char *asan_base = static_cast<char *>(malloc(n));
+		volatile char *asan_probe = asan_base + n;   // one byte past the end
+		*asan_probe = 'x';                           // volatile store: not optimized away
+		free(asan_base);
+	}
+
 	return 0;
 }
 
