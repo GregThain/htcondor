@@ -74,11 +74,15 @@ jobs:
           report-converter -t asan -e sarif --output $GITHUB_WORKSPACE/asan/output/asan $GITHUB_WORKSPACE/asan/condor.* || true
           ps auxww | grep [Cc]ondor_ | awk '{print $2}' | xargs -r kill -9
 
+      - name: Mark workspace as safe for git
+        if: always()
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Upload SARIF file
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: $GITHUB_WORKSPACE/asan/output/
+          sarif_file: asan/output/
           category: asan
 
       - name: Upload Artifact with asan output
