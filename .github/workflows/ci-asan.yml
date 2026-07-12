@@ -5,13 +5,22 @@ permissions:
   security-events: write
 
 on:
+  workflow_dispatch:
+  push:
+    branches: [stress-test]
   pull_request:
-    types: [labeled, pull_request]
+    types: [labeled]
 
 jobs:
   resolve-ubunturoot-image:
-    # Only run with the "asan" label
-    if: github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'asan')
+    # Run on push/manual dispatch, or on a PR labeled "asan". Push and
+    # workflow_dispatch attribute results to refs/heads/<branch>, so the
+    # findings show up in the Security -> Code scanning tab (PR runs land
+    # on refs/pull/N/merge, which the tab's branch filter doesn't show).
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'asan'))
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.extract.outputs.image }}
