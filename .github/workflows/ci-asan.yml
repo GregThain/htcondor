@@ -74,6 +74,15 @@ jobs:
           report-converter -t asan -e sarif --output $GITHUB_WORKSPACE/asan/output/asan $GITHUB_WORKSPACE/asan/condor.* || true
           ps auxww | grep [Cc]ondor_ | awk '{print $2}' | xargs -r kill -9
 
+      - name: Clamp SARIF line/column values to >= 1
+        if: always()
+        run: |
+          # report-converter emits startLine/startColumn 0 when the sanitizer
+          # report has no column info, but GitHub's SARIF validator requires
+          # these to be >= 1. Bump any 0 up to 1.
+          find $GITHUB_WORKSPACE/asan/output -name '*.sarif' -exec \
+            sed -i -E 's/("(startLine|startColumn|endLine|endColumn)"[[:space:]]*:)[[:space:]]*0([^0-9]|$)/\1 1\3/g' {} +
+
       - name: Mark workspace as safe for git
         if: always()
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
