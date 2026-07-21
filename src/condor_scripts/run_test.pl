@@ -484,7 +484,7 @@ sub DoChild
     }
 
     my $res;
-    my $use_timed_cmd = 1; # use the timed_cmd helper binary to timeout the test and cleaup processes
+    my $use_timed_cmd = 0; # use the timed_cmd helper binary to timeout the test and cleaup processes
     if ($iswindows && $use_timed_cmd) {
         my $dtm = ""; if (defined $ENV{TIMED_CMD_DEBUG_WAIT}) {$dtm = ":$ENV{TIMED_CMD_DEBUG_WAIT}";}
         my $verb = ($hush == 0) ? "" : "-v";
