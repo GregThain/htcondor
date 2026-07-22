@@ -74,13 +74,7 @@ jobs:
         if: always()
         run: |
           mkdir -p $GITHUB_WORKSPACE/asan/output
-          # These logs are almost entirely LeakSanitizer reports, so parse them
-          # with -t lsan. Also run -t asan to catch any true AddressSanitizer
-          # errors. report-converter only emits a report when a stack frame's
-          # source file exists on disk, so per-file "No results" lines are
-          # normal for logs whose frames don't resolve.
-          report-converter -t lsan -e sarif --output $GITHUB_WORKSPACE/asan/output/lsan $GITHUB_WORKSPACE/asan/condor.* || true
-          report-converter -t asan -e sarif --output $GITHUB_WORKSPACE/asan/output/asan $GITHUB_WORKSPACE/asan/condor.* || true
+          report-converter -t asan -e sarif --output $GITHUB_WORKSPACE/asan/output $GITHUB_WORKSPACE/asan/condor.* || true
           ps auxww | grep [Cc]ondor_ | awk '{print $2}' | xargs -r kill -9
 
       - name: Merge SARIF files per category
