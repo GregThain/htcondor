@@ -542,10 +542,14 @@ bool Dag::ProcessOneEvent (ULogEventOutcome outcome, const ULogEvent *event, boo
 			// event is for a job outside this DAG; ignore it
 			if ( ! node) { break; }
 
-			// Less than zero for proc id is a non-job shadow event: Skip processing
-			if (event->proc < 0) {
-				debug_printf(DEBUG_NORMAL, "Warning: Skipping event due to non-job proc id %d%s\n",
-				             event->proc, isTransferShadowProcID(event->proc) ? ": Common Transfer Shadow" : "");
+			// Common transfer shadows reuse the job's ClassAd (and thus its
+			// DAGMan log) with a reserved proc id (<= FIRST_TRANSFER_PROC_ID);
+			// their events are not real job procs, so skip them.  Note: cluster
+			// level events (ULOG_CLUSTER_SUBMIT/REMOVE) also carry proc id -1 but
+			// must NOT be skipped -- they are dispatched normally below.
+			if (isTransferShadowProcID(event->proc)) {
+				debug_printf(DEBUG_NORMAL, "Warning: Skipping event due to non-job proc id %d: Common Transfer Shadow\n",
+				             event->proc);
 				break;
 			}
 
@@ -702,7 +706,7 @@ Dag::ProcessAbortEvent(const ULogEvent *event, Node *node, bool recovery) {
 			node->SetStatus(Node::STATUS_ERROR); // Mostly for late materialization
 			node->MarkFailed();
 
-			if (node->GetQueuedJobs() > 0) {
+			if (node->RemoveOnBatchFailure(config[conf::b::RemoveJobListOnFailure])) {
 				// once one job proc fails, remove the whole cluster
 				std::string rm_reason;
 				formatstr(rm_reason, "Node Error: DAG node %s (%d.%d.%d) got %s event.",
@@ -727,7 +731,6 @@ Dag::ProcessTerminatedEvent(const ULogEvent *event, Node *node, bool recovery) {
 		const JobTerminatedEvent* termEvent = (const JobTerminatedEvent*) event;
 
 		bool job_failed = !(termEvent->normal && termEvent->returnValue == 0);
-		bool batch_failed = false;
 
 		node->RecordJobExitCode(termEvent->proc, termEvent->returnValue);
 
@@ -762,23 +765,6 @@ Dag::ProcessTerminatedEvent(const ULogEvent *event, Node *node, bool recovery) {
 					node->_scriptPost->_retValJob = node->GetReturnValue();
 				}
 			}
-
-			batch_failed = node->CheckBatchFailed(config[conf::i::BatchFailureTolerance]);
-
-			// If we haven't failed yet and we have reached our node job list failure tolerance then fail node
-			if (node->GetStatus() != Node::STATUS_ERROR && batch_failed) {
-				node->SetStatus(Node::STATUS_ERROR); // Mostly for late materialization
-				node->MarkFailed();
-
-				if (node->GetQueuedJobs() > 0) {
-					// once one job proc fails, remove the whole cluster
-					std::string rm_reason;
-					formatstr(rm_reason, "Node Error: DAG node %s (%d.%d.%d) reached failure tolerance after %d failures.",
-					          node->GetNodeName(), termEvent->cluster, termEvent->proc, termEvent->subproc, node->TotalJobsFailed());
-					RemoveBatchJob(node, rm_reason);
-				}
-			}
-
 		} else { // job succeeded
 			ASSERT(termEvent->returnValue == 0);
 			_totalJobsSuccessful++;
@@ -796,6 +782,22 @@ Dag::ProcessTerminatedEvent(const ULogEvent *event, Node *node, bool recovery) {
 			}
 			debug_printf(DEBUG_NORMAL, "Node %s job proc (%d.%d.%d) completed successfully.\n",
 			             node->GetNodeName(), termEvent->cluster, termEvent->proc, termEvent->subproc);
+		}
+
+		bool batch_failed = node->CheckBatchFailed(config[conf::i::BatchFailureTolerance]);
+
+		// If we haven't failed yet and we have reached our node job list failure tolerance then fail node
+		if (node->GetStatus() != Node::STATUS_ERROR && batch_failed) {
+			node->SetStatus(Node::STATUS_ERROR); // Mostly for late materialization
+			node->MarkFailed();
+
+			if (node->RemoveOnBatchFailure(config[conf::b::RemoveJobListOnFailure])) {
+				// once one job proc fails, remove the whole cluster
+				std::string rm_reason;
+				formatstr(rm_reason, "Node Error: DAG node %s (%d.%d.%d) reached failure tolerance after %d failures.",
+				          node->GetNodeName(), termEvent->cluster, termEvent->proc, termEvent->subproc, node->TotalJobsFailed());
+				RemoveBatchJob(node, rm_reason);
+			}
 		}
 
 		ProcessJobProcEnd(node, recovery, batch_failed);
