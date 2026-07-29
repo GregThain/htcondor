@@ -179,7 +179,7 @@ jobs:
 
       - name: build
         run: |
-          cd __build && cmake --build . --target install --verbose --config RelWithDebInfo --parallel 4
+          cd __build && cmake --build . --target install --verbose --config Debug --parallel 4
       - name: Copy ASan runtime DLLs to release_dir/bin
         run: |
           $bin = "$pwd/__build/release_dir/bin"
@@ -235,11 +235,31 @@ jobs:
 
           Write-Host "== python cold-start AFTER exclusions:  $(Measure-PyStart) =="
 
+      - name: Enable WER LocalDumps for condor_shadow.exe
+        shell: pwsh
+        run: |
+          # condor_shadow.exe fast-fails (0xC0000409) in the condor-C tests, and
+          # the fastfail bypasses DaemonCore's own exception handler (no core is
+          # written), so capture a post-mortem dump via Windows Error Reporting
+          # LocalDumps instead.  Full dump (DumpType=2) so we can inspect the
+          # container/iterator state that tripped the debug-CRT check.  Dumps
+          # land under __build so the existing "Upload All on Failure" step
+          # carries them (with the PDBs already copied to release_dir/bin).
+          $dumpDir = "$env:GITHUB_WORKSPACE\__build\shadow_dumps"
+          New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
+          icacls $dumpDir /grant "Everyone:(OI)(CI)F" | Out-Null
+          $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\condor_shadow.exe"
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value $dumpDir -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType   -PropertyType DWord -Value 2  -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount  -PropertyType DWord -Value 25 -Force | Out-Null
+          Write-Host "WER LocalDumps enabled for condor_shadow.exe -> $dumpDir"
+
       - name: ctests
         run: |
           $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
           #cd __build && ctest -C Debug -j 20 --repeat-until-fail 1 -R "unit_test_macro_expand|job_foreach"
-          cd __build && ctest -C RelWithDebInfo -j 20 --repeat-until-fail 1
+          cd __build && ctest -C Debug -j 20 --repeat-until-fail 1
 
       - name: block upload until everything gone
         if: failure()
