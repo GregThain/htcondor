@@ -179,7 +179,7 @@ jobs:
 
       - name: build
         run: |
-          cd __build && cmake --build . --target install --verbose --config Debug --parallel 4
+          cd __build && cmake --build . --target install --verbose --config RelWithDebInfo --parallel 4
       - name: Copy ASan runtime DLLs to release_dir/bin
         run: |
           $bin = "$pwd/__build/release_dir/bin"
@@ -239,7 +239,7 @@ jobs:
         run: |
           $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
           #cd __build && ctest -C Debug -j 20 --repeat-until-fail 1 -R "unit_test_macro_expand|job_foreach"
-          cd __build && ctest -C Debug -j 20 --repeat-until-fail 1
+          cd __build && ctest -C RelWithDebInfo -j 20 --repeat-until-fail 1
 
       - name: block upload until everything gone
         if: failure()
