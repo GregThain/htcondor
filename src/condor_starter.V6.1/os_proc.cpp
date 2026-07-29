@@ -941,27 +941,19 @@ OsProc::ShutdownGraceful()
 	// resolves to a soft kill delivered via condor_softkill.
 	int kill_sig = (findRmKillSig(JobAd) != -1) ? rm_kill_sig : soft_kill_sig;
 
-	bool sent = daemonCore->Send_Signal(JobPid, kill_sig);
-	if (!sent) {
-		dprintf(D_ALWAYS, "Send (softkill) signal failed, retrying...\n");
-		sleep(1);
-		sent = daemonCore->Send_Signal(JobPid, kill_sig);
-		if (!sent) {
-			// We could not deliver the graceful soft-kill signal to the job.
-			// On Windows this happens when condor_softkill cannot find a
-			// window owned by the job process and cannot post a console
-			// control event to it (SOFTKILL_WINDOW_NOT_FOUND).  The job will
-			// never receive the signal, so waiting for the vacate timeout to
-			// expire before hard-killing only delays the inevitable.  Escalate
-			// to a hard kill immediately.  The call is virtual, so
-			// VanillaProc::ShutdownFast() tears down the whole process family
-			// via Kill_Family().
-			dprintf(D_ALWAYS, "Send (softkill) signal failed twice, escalating to hard kill now\n");
-			return ShutdownFast();
-		} else {
-			dprintf(D_ALWAYS, "Send (softkill) signal worked the second time\n");
-		}
+	// If we can't even deliver the graceful kill signal, don't wait for the
+	// (distant) vacate deadline to expire -- hard-kill the job now.  On Windows
+	// condor_softkill can fail to find a window owned by the job process
+	// (SOFTKILL_WINDOW_NOT_FOUND), e.g. when a job is removed so soon after it
+	// starts that it has not yet created its window; the job would otherwise
+	// linger until the startd's kill timeout.  ShutdownFast() is virtual, so
+	// VanillaProc::ShutdownFast() tears down the whole process family via
+	// Kill_Family().
+	if (!daemonCore->Send_Signal(JobPid, kill_sig)) {
+		dprintf(D_ALWAYS, "Send (softkill) signal failed, escalating to hard kill now\n");
+		return ShutdownFast();
 	}
+
 	return false;	// return false says shutdown is pending
 }
 
