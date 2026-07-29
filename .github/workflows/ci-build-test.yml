@@ -169,12 +169,13 @@ jobs:
       - name: Install/Upgrade python and python accessories
         run: | 
           python -m pip install --upgrade pip setuptools wheel
+          pip install -r src/condor_tests/requirements.txt
 
       - name: cmake configuration
         run: |
           mkdir __build
           cd __build && cmake -G "Visual Studio 17 2022" -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
-          #cd __build && cmake -DWITH_ADDRESS_SANITIZER:bool=true -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
+          #cd __build && cmake -G "Visual Studio 17 2022" -DWITH_ADDRESS_SANITIZER:bool=true -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
 
       - name: build
         run: |
@@ -199,10 +200,66 @@ jobs:
           foreach ($pdb in $pdbs) {
             Copy-Item -Path $pdb.FullName -Destination $bin -Force -ErrorAction SilentlyContinue
           }
+      # Windows CI jobs launch the python-polyglot sleep helper (and other
+      # scripts) once per test job; on the hosted runner each launch was
+      # observed to take ~45s of pure overhead beyond the work itself, which
+      # pushes short jobs past their in-test timeouts.  The leading suspect is
+      # Defender on-access scanning of python.exe + the stdlib on every launch.
+      # This step MEASURES python cold-start before and after adding Defender
+      # exclusions so the CI log proves (or refutes) that hypothesis, and
+      # leaves the exclusions in place for the ctests step below.
+      - name: Diagnose and mitigate python startup cost
+        shell: pwsh
+        run: |
+          $py = "${{ env.pythonLocation }}\python.exe"
+          function Measure-PyStart {
+            $times = foreach ($i in 1..5) {
+              $sw = [System.Diagnostics.Stopwatch]::StartNew()
+              & $py -c "import time, itertools" | Out-Null
+              $sw.Stop()
+              $sw.Elapsed.TotalSeconds
+            }
+            ($times | Measure-Object -Average -Maximum).psobject.Properties |
+              Where-Object { $_.Name -in 'Average','Maximum' } |
+              ForEach-Object { "$($_.Name)=$([math]::Round($_.Value,2))s" }
+          }
+          Write-Host "== Defender status =="
+          try { Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled, AntivirusEnabled | Format-List } catch { Write-Host "Get-MpComputerStatus unavailable: $_" }
+          Write-Host "== python cold-start BEFORE exclusions: $(Measure-PyStart) =="
+
+          Write-Host "== adding Defender exclusions =="
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "${{ env.pythonLocation }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "python.exe" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "cmd.exe" -ErrorAction SilentlyContinue
+
+          Write-Host "== python cold-start AFTER exclusions:  $(Measure-PyStart) =="
+
+      - name: Enable WER LocalDumps for condor_shadow.exe
+        shell: pwsh
+        run: |
+          # condor_shadow.exe fast-fails (0xC0000409) in the condor-C tests, and
+          # the fastfail bypasses DaemonCore's own exception handler (no core is
+          # written), so capture a post-mortem dump via Windows Error Reporting
+          # LocalDumps instead.  Full dump (DumpType=2) so we can inspect the
+          # container/iterator state that tripped the debug-CRT check.  Dumps
+          # land under __build so the existing "Upload All on Failure" step
+          # carries them (with the PDBs already copied to release_dir/bin).
+          $dumpDir = "$env:GITHUB_WORKSPACE\__build\shadow_dumps"
+          New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
+          icacls $dumpDir /grant "Everyone:(OI)(CI)F" | Out-Null
+          $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\condor_shadow.exe"
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value $dumpDir -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType   -PropertyType DWord -Value 2  -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount  -PropertyType DWord -Value 25 -Force | Out-Null
+          Write-Host "WER LocalDumps enabled for condor_shadow.exe -> $dumpDir"
+
       - name: ctests
         run: |
           $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
-          cd __build && ctest -C Debug -j 20 --repeat-until-fail 1 -R "unit_test_macro_expand|job_foreach"
+          #cd __build && ctest -C Debug -j 20 --repeat-until-fail 1 -R "unit_test_macro_expand|job_foreach"
+          cd __build && ctest -C Debug -j 20 --repeat-until-fail 1
 
       - name: block upload until everything gone
         if: failure()

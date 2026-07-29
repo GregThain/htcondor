@@ -2,15 +2,25 @@ name: Run tests with Address Sanitizer
 
 permissions:
   contents: read
+  security-events: write
 
 on:
+  workflow_dispatch:
+  push:
+    branches: [stress-test]
   pull_request:
-    types: [labeled, pull_request]
+    types: [labeled]
 
 jobs:
   resolve-ubunturoot-image:
-    # Only run with the "asan" label
-    if: github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'asan')
+    # Run on push/manual dispatch, or on a PR labeled "asan". Push and
+    # workflow_dispatch attribute results to refs/heads/<branch>, so the
+    # findings show up in the Security -> Code scanning tab (PR runs land
+    # on refs/pull/N/merge, which the tab's branch filter doesn't show).
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'asan'))
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.extract.outputs.image }}
@@ -38,6 +48,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Install CodeChecker via pip
+        run: |
+          apt-get update && apt-get install -y python3.12-venv jq
+          python3 -m venv /opt/codechecker-venv
+          /opt/codechecker-venv/bin/pip install --upgrade pip
+          /opt/codechecker-venv/bin/pip install codechecker
+          echo "/opt/codechecker-venv/bin" >> "$GITHUB_PATH"
+
       - name: Compile with Address Sanitizer
         run: |
           chmod 0777 .
@@ -55,7 +73,64 @@ jobs:
       - name: Kill off processes
         if: always()
         run: |
+          mkdir -p $GITHUB_WORKSPACE/asan/output
+          report-converter -t asan -e sarif --output $GITHUB_WORKSPACE/asan/output $GITHUB_WORKSPACE/asan/condor.* || true
           ps auxww | grep [Cc]ondor_ | awk '{print $2}' | xargs -r kill -9
+
+      - name: Merge SARIF files per category
+        if: always()
+        run: |
+          # report-converter emits one SARIF file (each its own run) per
+          # analyzed source file. GitHub's upload-sarif no longer combines
+          # multiple runs under the same category, so merge each category's
+          # files into a single run: union the rules (matched by id),
+          # concatenate the results, and drop the optional ruleIndex/artifact
+          # index fields so GitHub falls back to ruleId/uri. The same pass
+          # clamps startLine/startColumn/endLine/endColumn up to 1, since
+          # report-converter emits 0 when the report has no column info but
+          # GitHub's validator requires >= 1.
+          prog='
+            ([.[].runs[].tool.driver.rules[]?] | unique_by(.id)) as $rules
+            | { version: "2.1.0",
+                "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+                runs: [ { tool: { driver: (.[0].runs[0].tool.driver + {rules: $rules}) },
+                          results: [ .[].runs[].results[]? | del(.ruleIndex) ] } ] }
+            | walk(
+                if type == "object" then
+                  (if has("uri") and has("index") then del(.index) else . end)
+                  | reduce ("startLine", "startColumn", "endLine", "endColumn") as $k (.;
+                      if (.[$k] // 1) < 1 then .[$k] = 1 else . end)
+                else . end)'
+          merge() {
+            local dir="$1" out="$2"
+            if find "$dir" -name '*.sarif' -print -quit 2>/dev/null | grep -q .; then
+              find "$dir" -name '*.sarif' -print0 | xargs -0 jq -s "$prog" > "$out"
+            else
+              # No reports for this category; emit a valid empty run so the
+              # upload still succeeds (and clears any stale prior results).
+              jq -n '{version:"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json",runs:[{tool:{driver:{name:"report-converter",rules:[]}},results:[]}]}' > "$out"
+            fi
+          }
+          merge "$GITHUB_WORKSPACE/asan/output/asan" "$GITHUB_WORKSPACE/asan/asan.sarif"
+          merge "$GITHUB_WORKSPACE/asan/output/lsan" "$GITHUB_WORKSPACE/asan/lsan.sarif"
+
+      - name: Mark workspace as safe for git
+        if: always()
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Upload ASan SARIF file
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: asan/asan.sarif
+          category: asan
+
+      - name: Upload LSan SARIF file
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: asan/lsan.sarif
+          category: lsan
 
       - name: Upload Artifact with asan output
         # Always upload, even if build or tests fail
