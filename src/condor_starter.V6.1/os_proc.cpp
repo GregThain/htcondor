@@ -934,29 +934,32 @@ OsProc::ShutdownGraceful()
 		Continue();
 	}
 	requested_exit = true;
-	if ( findRmKillSig(JobAd) != -1 ) {
-		daemonCore->Send_Signal(JobPid, rm_kill_sig);
-	} else {
-		bool sent = daemonCore->Send_Signal(JobPid, soft_kill_sig);
+
+	// Pick the signal to send: prefer the job's remove-kill signal if it set
+	// one, otherwise the soft-kill signal.  Note that on Windows findRmKillSig()
+	// always returns SIGTERM (there are no real signals), so this always
+	// resolves to a soft kill delivered via condor_softkill.
+	int kill_sig = (findRmKillSig(JobAd) != -1) ? rm_kill_sig : soft_kill_sig;
+
+	bool sent = daemonCore->Send_Signal(JobPid, kill_sig);
+	if (!sent) {
+		dprintf(D_ALWAYS, "Send (softkill) signal failed, retrying...\n");
+		sleep(1);
+		sent = daemonCore->Send_Signal(JobPid, kill_sig);
 		if (!sent) {
-			dprintf(D_ALWAYS, "Send (softkill) signal failed, retrying...\n");
-			sleep(1);
-			sent = daemonCore->Send_Signal(JobPid, soft_kill_sig);
-			if (!sent) {
-				// We could not deliver the graceful soft-kill signal to the
-				// job.  On Windows this happens when condor_softkill cannot
-				// find a window owned by the job process and cannot post a
-				// console control event to it (SOFTKILL_WINDOW_NOT_FOUND).
-				// The job will never receive the signal, so waiting for the
-				// vacate timeout to expire before hard-killing only delays
-				// the inevitable.  Escalate to a hard kill immediately.  The
-				// call is virtual, so VanillaProc::ShutdownFast() tears down
-				// the whole process family via Kill_Family().
-				dprintf(D_ALWAYS, "Send (softkill) signal failed twice, escalating to hard kill now\n");
-				return ShutdownFast();
-			} else {
-				dprintf(D_ALWAYS, "Send (softkill) signal worked the second time\n");
-			}
+			// We could not deliver the graceful soft-kill signal to the job.
+			// On Windows this happens when condor_softkill cannot find a
+			// window owned by the job process and cannot post a console
+			// control event to it (SOFTKILL_WINDOW_NOT_FOUND).  The job will
+			// never receive the signal, so waiting for the vacate timeout to
+			// expire before hard-killing only delays the inevitable.  Escalate
+			// to a hard kill immediately.  The call is virtual, so
+			// VanillaProc::ShutdownFast() tears down the whole process family
+			// via Kill_Family().
+			dprintf(D_ALWAYS, "Send (softkill) signal failed twice, escalating to hard kill now\n");
+			return ShutdownFast();
+		} else {
+			dprintf(D_ALWAYS, "Send (softkill) signal worked the second time\n");
 		}
 	}
 	return false;	// return false says shutdown is pending
