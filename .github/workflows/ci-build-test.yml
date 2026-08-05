@@ -174,8 +174,7 @@ jobs:
       - name: cmake configuration
         run: |
           mkdir __build
-          cd __build && cmake -G "Visual Studio 17 2022" -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
-          #cd __build && cmake -G "Visual Studio 17 2022" -DWITH_ADDRESS_SANITIZER:bool=true -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
+          cd __build && cmake -G "Visual Studio 17 2022" -DWITH_ADDRESS_SANITIZER:bool=true -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}\python.exe" -DWITH_KRB5:bool=false ..
 
       - name: build
         run: |
@@ -258,8 +257,7 @@ jobs:
       - name: ctests
         run: |
           $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
-          #cd __build && ctest -C Debug -j 20 --repeat-until-fail 1 -R "unit_test_macro_expand|job_foreach"
-          cd __build && ctest -C Debug -j 20 --repeat-until-fail 1
+          cd __build && ctest -C Debug -j 10 --repeat-until-fail 1
 
       - name: block upload until everything gone
         if: failure()
