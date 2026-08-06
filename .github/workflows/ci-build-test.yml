@@ -267,8 +267,27 @@ jobs:
         shell: pwsh
         run: |
           $h = "$env:SystemRoot\System32\drivers\etc\hosts"
-          Add-Content -Path $h -Value "127.0.0.1`t$env:COMPUTERNAME.localdomain $env:COMPUTERNAME"
-          Write-Host "Added hosts entry for $env:COMPUTERNAME.localdomain / $env:COMPUTERNAME"
+          $name = $env:COMPUTERNAME
+          # Add-Content does not insert a leading newline, and the stock hosts
+          # file's last line is a comment with no trailing newline -- so a naive
+          # append glues our entry onto that comment line and it is ignored.
+          # Guarantee the file ends in a newline before appending on its own line.
+          $existing = Get-Content -Raw -Path $h -ErrorAction SilentlyContinue
+          if ($existing -and $existing[-1] -ne "`n") { Add-Content -Path $h -Encoding ascii -Value "" }
+          Add-Content -Path $h -Encoding ascii -Value "127.0.0.1`t$name.localdomain $name"
+          Add-Content -Path $h -Encoding ascii -Value "127.0.0.1`t$name"
+          ipconfig /flushdns | Out-Null
+          Write-Host "hosts entries for ${name}:"
+          Select-String -Path $h -Pattern ([regex]::Escape($name)) | ForEach-Object { $_.Line }
+          # Fail loudly if the name still does not resolve, so this shows up here
+          # instead of as opaque "unknown host" failures deep in the test suite.
+          try {
+            $ips = [System.Net.Dns]::GetHostAddresses($name)
+            Write-Host "$name resolves to: $($ips -join ', ')"
+          } catch {
+            Write-Error "FATAL: '$name' still does not resolve after editing hosts: $_"
+            exit 1
+          }
 
       - name: ctests
         run: |
