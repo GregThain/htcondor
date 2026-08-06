@@ -25,11 +25,23 @@ SCRIPTS = {
     if path.stem != "__init__"
 }
 
-WIN32_PY_SCRIPT_PROLOG = [
-    "0<0# : ^", "'''", "@echo off",
-    ("py.exe" if not sys.executable else '"{}"'.format(sys.executable)) + ' "%~f0" %*',
-    "@goto :EOF", "'''"
-]
+# A .cmd/.py polyglot.  cmd.exe executes only the single launcher line below;
+# it runs python with -x on this same file and then `exit /b` -- so cmd never
+# reaches the python body that follows.  python's -x flag ("skip the first line
+# of source") exists precisely for this batch/python-polyglot use, so python
+# ignores the launcher line and runs the wrapped script normally.
+#
+# This replaces an earlier multi-line prolog that relied on `goto :EOF` to halt
+# cmd before the body.  When cmd instead fell through into the body (its
+# documented-here failure mode), it executed the script's `time.sleep(1)` line
+# as the cmd built-in `time`, which prompts and blocks reading stdin -- so the
+# job never exited (seen in CI as jobs stuck "executing", never "terminated",
+# with empty stdout).  A single launcher line ending in `exit /b` makes
+# fall-through impossible.
+WIN32_PY_LAUNCHER = (
+    ('@py.exe' if not sys.executable else '@"{}"'.format(sys.executable))
+    + ' -x "%~f0" %* & exit /b'
+)
 
 def prepare_script(path):
     if os.path.isfile(path) : return
@@ -41,12 +53,10 @@ def prepare_script(path):
                 body = f.read()
             if body:
                 # cmd.exe requires CRLF line endings; an LF-only batch file is
-                # mis-parsed (the caret line-continuation in the prolog breaks)
-                # and falls straight through without ever launching python, so
-                # the job exits immediately instead of honoring its argument.
-                # Emit CRLF throughout -- python accepts CRLF source via
-                # universal newlines, so the wrapped body still runs.
-                prolog = "\r\n".join(WIN32_PY_SCRIPT_PROLOG).encode('utf8')
+                # mis-parsed and the launcher line never runs.  Emit CRLF
+                # throughout -- python accepts CRLF source via universal
+                # newlines, so the wrapped body still runs.
+                prolog = (WIN32_PY_LAUNCHER + "\r\n").encode('utf8')
                 body = body.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
                 with open(path,'wb') as f:
                     f.write(prolog + body)
