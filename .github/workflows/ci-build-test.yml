@@ -258,6 +258,18 @@ jobs:
           New-ItemProperty -Path $key -Name DumpCount  -PropertyType DWord -Value 25 -Force | Out-Null
           Write-Host "WER LocalDumps enabled for condor_shadow.exe -> $dumpDir"
 
+      # The hosted runner's machine name has no DNS entry and no domain, so
+      # condor's FULL_HOSTNAME is a bare name that getaddrinfo() cannot resolve.
+      # Tools that resolve that name (e.g. condor_drain in test_drain_policies)
+      # then fail with "unknown host <name>".  Give the name an entry in the
+      # hosts file (with an FQDN) so it resolves locally.
+      - name: Make the runner hostname resolvable
+        shell: pwsh
+        run: |
+          $h = "$env:SystemRoot\System32\drivers\etc\hosts"
+          Add-Content -Path $h -Value "127.0.0.1`t$env:COMPUTERNAME.localdomain $env:COMPUTERNAME"
+          Write-Host "Added hosts entry for $env:COMPUTERNAME.localdomain / $env:COMPUTERNAME"
+
       - name: ctests
         run: |
           $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
