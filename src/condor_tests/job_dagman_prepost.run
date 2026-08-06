@@ -23,6 +23,7 @@ use CondorTest;
 use CondorUtils;
 use Cwd;
 use File::Temp;
+use File::Copy;
 
 my $iswindows = CondorUtils::is_windows();
 
@@ -49,6 +50,19 @@ CondorTest::debug("current directory is $newsocketname\n",1);
 # start a server for this test
 
 runcmd("rm -f $flowlog");
+
+# On Windows the DAGMan PRE/POST scripts run appendmsg.exe (see the generated
+# *.pl), which is built into the src/condor_tests build directory.  Those
+# scripts run with this run dir as their cwd, and Windows resolves a bare
+# command name against the cwd.  That build dir is this run dir under the
+# batlab harness but the parent dir under ctest (which adds an extra
+# <test>_ctest dir), so copy the helper in if it is not already here.
+if (CondorUtils::is_windows() && ! -e "appendmsg.exe") {
+	foreach my $src ("..\\appendmsg.exe", "..\\..\\appendmsg.exe") {
+		if ( -e $src ) { copy($src, "appendmsg.exe"); last; }
+	}
+}
+
 if(!($iswindows)) {
 	defined(my $pid = fork) or die "Cannot fork: $!";
 	unless ($pid)
