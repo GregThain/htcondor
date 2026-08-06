@@ -194,16 +194,25 @@ SharedPortEndpoint::StopListener()
 		if (pipe_end && pipe_end != INVALID_HANDLE_VALUE) { CloseHandle(pipe_end); pipe_end = INVALID_HANDLE_VALUE; }
 		ASSERT (thread_handle == INVALID_HANDLE_VALUE);
 	} else {
-		bool tried = false;
-		HANDLE child_pipe = INVALID_HANDLE_VALUE;
-		while(true)
-		{
-			if(tried)
-			{
-				dprintf(D_ALWAYS, "ERROR: SharedPortEndpoint: Failed to cleanly terminate pipe listener\n");
-				break;
-			}
-			child_pipe = CreateFile(
+		// We are about to free this object (our caller is typically the
+		// destructor), so the listener thread MUST NOT still be running when we
+		// return: it re-reads member state such as pipe_end at the top of its
+		// loop, and touching that after we are freed is a use-after-free that we
+		// have observed at shutdown.
+		//
+		// thread_should_exit has already been set above, but the thread only
+		// notices it after a ConnectNamedPipe() call returns.  Wake it by
+		// connecting to the named pipe as a client, then wait for it to exit.
+		// Retry the wake a few times (the thread may be busy with a socket
+		// handoff), and as a last resort forcibly terminate it so it can never
+		// touch this object again.  This path only runs during daemon shutdown,
+		// where leaking the terminated thread's resources is immaterial.
+		const int max_wake_attempts = 5;
+		bool thread_exited = (thread_handle == INVALID_HANDLE_VALUE);
+		for (int attempt = 0; attempt < max_wake_attempts && !thread_exited; ++attempt) {
+			// Nudge the listener: open and immediately close a client connection
+			// so its blocking ConnectNamedPipe() returns.
+			HANDLE child_pipe = CreateFile(
 				m_full_name.c_str(),
 				GENERIC_READ | GENERIC_WRITE,
 				0,
@@ -211,38 +220,40 @@ SharedPortEndpoint::StopListener()
 				OPEN_EXISTING,
 				0,
 				NULL);
-
-			if(child_pipe == INVALID_HANDLE_VALUE)
-			{
-				dprintf(D_ALWAYS, "ERROR: SharedPortEndpoint: Named pipe does not exist.\n");
-				break;
-			}
-
-			if(GetLastError() == ERROR_PIPE_BUSY)
-			{
-				if (!WaitNamedPipe(m_full_name.c_str(), 20000))
-				{
-					dprintf(D_ALWAYS, "ERROR: SharedPortEndpoint: Wait for named pipe for sending socket timed out: %d\n", GetLastError());
-					break;
+			if (child_pipe == INVALID_HANDLE_VALUE && GetLastError() == ERROR_PIPE_BUSY) {
+				// Another client is mid-handoff; wait for an instance and retry once.
+				if (WaitNamedPipe(m_full_name.c_str(), 20000)) {
+					child_pipe = CreateFile(
+						m_full_name.c_str(),
+						GENERIC_READ | GENERIC_WRITE,
+						0,
+						NULL,
+						OPEN_EXISTING,
+						0,
+						NULL);
 				}
-
-				tried = true;
-
-				continue;
+			}
+			if (child_pipe != INVALID_HANDLE_VALUE) {
+				CloseHandle(child_pipe);
 			}
 
-			break;
-		}
-		if (child_pipe && (child_pipe != INVALID_HANDLE_VALUE)) {
-			CloseHandle(child_pipe); child_pipe = INVALID_HANDLE_VALUE;
+			// Wait for the thread to notice thread_should_exit and return.
+			// Normally this returns almost immediately.
+			if (WaitForSingleObject(thread_handle, 2*1000) == WAIT_OBJECT_0) {
+				thread_exited = true;
+			}
 		}
 
 		if (thread_handle != INVALID_HANDLE_VALUE) {
-			// wait at most 2 seconds for the thread to exit. Normally this will take no time at all
-			// the only time we need to wait here is when the thread is currently dealing with a socket handoff
-			DWORD wait_result = WaitForSingleObject(thread_handle, 2*1000);
-			if (wait_result != WAIT_OBJECT_0) {
-				dprintf(D_ERROR, "SharedPortEndpoint: StopListener could not stop the listener thread: %d\n", GetLastError());
+			if (!thread_exited) {
+				// The thread did not exit on its own (for example, its
+				// ConnectNamedPipe() kept failing so it never rechecked
+				// thread_should_exit).  We cannot safely free this object while
+				// it runs, so forcibly kill it and confirm it is gone before we
+				// release the handle and return.
+				dprintf(D_ERROR, "SharedPortEndpoint: StopListener could not cleanly stop the listener thread; terminating it\n");
+				TerminateThread(thread_handle, 0);
+				WaitForSingleObject(thread_handle, INFINITE);
 			}
 			CloseHandle(thread_handle); thread_handle = INVALID_HANDLE_VALUE;
 		}
@@ -561,6 +572,14 @@ SharedPortEndpoint::PipeListenerThread()
 		if(!ConnectNamedPipe(pipe_end, NULL) && (GetLastError() != ERROR_PIPE_CONNECTED))
 		{
 			ThreadSafeLogError("SharedPortEndpoint: Client failed to connect", GetLastError());
+			// Honor a shutdown request even on the connect-failure path,
+			// otherwise a persistently failing ConnectNamedPipe() spins this
+			// loop forever, re-reading member state that StopListener() is
+			// trying to free out from under us.
+			if (thread_should_exit)
+			{
+				return;
+			}
 			continue;
 		}
 
