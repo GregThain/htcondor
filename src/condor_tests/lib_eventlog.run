@@ -21,6 +21,7 @@
 
 use CondorTest;
 use CondorUtils;
+use File::Copy;
 use strict;
 use warnings;
 
@@ -41,6 +42,18 @@ my $jobexe = "/bin/date";
 if (CondorUtils::is_windows()) { $jobexe = "appendmsg.exe"; }
 my $readlogexe = "./x_read_joblog.exe";
 if (CondorUtils::is_windows()) { $readlogexe = "x_read_joblog.exe"; }
+
+# On Windows the job runs appendmsg.exe, which is built into the
+# src/condor_tests build directory.  condor_submit (vanilla universe)
+# resolves a relative "executable" against the job's Iwd (this run dir),
+# not $PATH.  That build dir is this run dir under the batlab harness but
+# the parent dir under ctest (which adds an extra <test>_ctest dir), so copy
+# the helper in if it is not already here.
+if (CondorUtils::is_windows() && ! -e "appendmsg.exe") {
+	foreach my $src ("..\\appendmsg.exe", "..\\..\\appendmsg.exe") {
+		if ( -e $src ) { copy($src, "appendmsg.exe"); last; }
+	}
+}
 
 my $uniq_name = "$testname.$mypid";
 

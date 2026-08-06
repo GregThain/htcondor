@@ -27,6 +27,7 @@
 use CondorTest;
 use CondorUtils;
 use Cwd qw(getcwd);
+use File::Copy;
 
 $cmd = 'job_dagman_vars_prepend.dag';
 $testdesc =  'Condor submit dag - VARS PREPEND/APPEND test - scheduler U';
@@ -71,7 +72,7 @@ VARS test PREPEND +ThisShouldNotBreakShellSubmission=\"asdf\"
 VARS ALL_NODES empty1=\"\" empty2=\"\"";
 
 $submitfile=
-"executable = \$CHOICE(isWindows, /bin/echo, ..\\appendmsg.exe)
+"executable = \$CHOICE(isWindows, /bin/echo, appendmsg.exe)
 if defined pass_var1
      test_var1 = \$(pass_var1)
 else
@@ -230,6 +231,19 @@ for ($checknum = 0; $checknum <= $#ckptsdesc; $checknum++){
 		chdir "$dir\\check_$checknum";
 	} else {
 		chdir "$dir/check_$checknum";
+	}
+	# On Windows the node job runs appendmsg.exe, which is built into the
+	# src/condor_tests build directory but is not copied into our run dir.
+	# condor_submit resolves a relative "executable" against the job's Iwd
+	# (this check_N dir), not $PATH.  The number of directory levels between
+	# here and appendmsg.exe differs between harnesses (batlab runs flat in
+	# src/condor_tests; ctest adds an extra <test>_ctest dir), so copy the
+	# helper in from whichever parent level actually has it and submit it by
+	# bare name.
+	if ( CondorUtils::is_windows() ) {
+		foreach my $src ("..\\appendmsg.exe", "..\\..\\appendmsg.exe") {
+			if ( -e $src ) { copy($src, "appendmsg.exe"); last; }
+		}
 	}
 	# Make files
 	emit_file(".dag",$dagfile);
