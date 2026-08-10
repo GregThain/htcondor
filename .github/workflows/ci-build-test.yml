@@ -290,6 +290,16 @@ jobs:
           }
 
       - name: ctests
+        # The hosted runner's machine name is bare and domain-less, so condor's
+        # get_fqdn_from_hostname() cannot turn it into a dotted FQDN and tools
+        # that resolve it (e.g. condor_drain in the drain tests) die with
+        # "unknown host <name>".  Give condor a default domain so FULL_HOSTNAME
+        # becomes <name>.localdomain -- which is already dotted (so it needs no
+        # DNS lookup) and also matches the .localdomain alias written into the
+        # hosts file above.  _CONDOR_ env vars are honored by every condor
+        # tool/daemon the tests spawn.
+        env:
+          _CONDOR_DEFAULT_DOMAIN_NAME: localdomain
         run: |
           cd __build && ctest -C Debug -j 20
 
