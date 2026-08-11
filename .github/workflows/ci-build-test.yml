@@ -199,37 +199,7 @@ jobs:
           foreach ($pdb in $pdbs) {
             Copy-Item -Path $pdb.FullName -Destination $bin -Force -ErrorAction SilentlyContinue
           }
-
-      # The hosted runner's machine name has no DNS entry and no domain, so
-      # condor's FULL_HOSTNAME is a bare name that getaddrinfo() cannot resolve.
-      # Tools that resolve that name (e.g. condor_drain in test_drain_policies)
-      # then fail with "unknown host <name>".  Give the name an entry in the
-      # hosts file (with an FQDN) so it resolves locally.
-      - name: Make the runner hostname resolvable
-        shell: pwsh
-        run: |
-          $h = "$env:SystemRoot\System32\drivers\etc\hosts"
-          $name = $env:COMPUTERNAME
-          # Add-Content does not insert a leading newline, and the stock hosts
-          # file's last line is a comment with no trailing newline -- so a naive
-          # append glues our entry onto that comment line and it is ignored.
-          # Guarantee the file ends in a newline before appending on its own line.
-          $existing = Get-Content -Raw -Path $h -ErrorAction SilentlyContinue
-          if ($existing -and $existing[-1] -ne "`n") { Add-Content -Path $h -Encoding ascii -Value "" }
-          Add-Content -Path $h -Encoding ascii -Value "127.0.0.1`t$name.localdomain $name"
-          Add-Content -Path $h -Encoding ascii -Value "127.0.0.1`t$name"
-
       - name: ctests
-        # The hosted runner's machine name is bare and domain-less, so condor's
-        # get_fqdn_from_hostname() cannot turn it into a dotted FQDN and tools
-        # that resolve it (e.g. condor_drain in the drain tests) die with
-        # "unknown host <name>".  Give condor a default domain so FULL_HOSTNAME
-        # becomes <name>.localdomain -- which is already dotted (so it needs no
-        # DNS lookup) and also matches the .localdomain alias written into the
-        # hosts file above.  _CONDOR_ env vars are honored by every condor
-        # tool/daemon the tests spawn.
-        env:
-          _CONDOR_DEFAULT_DOMAIN_NAME: localdomain
         run: |
           $env:ASAN_OPTIONS = "log_path='$pwd/__build/asan.log':exit_code=0"
           cd __build && ctest -C Debug -j 20 --repeat-until-fail 1 -R "unit_test_macro_expand|job_foreach"
