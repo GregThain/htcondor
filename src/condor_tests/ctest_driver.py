@@ -152,6 +152,17 @@ def main():
         else:
             shutil.copy(src_fname, dst_fname)
 
+    # On Windows several tests submit jobs whose executable is "sleep.exe"
+    # (falling back to x_sleep.pl elsewhere).  sleep.exe/sleepw.exe are build
+    # artifacts produced into the parent of the rundir (TEST_TARGET_DIR), not
+    # source files, so they cannot be listed in the cross-platform DEPENDS and
+    # are never copied in.  condor_submit then fails with "Can't access
+    # executable file sleep.exe".  Copy them into the rundir when present.
+    for helper_exe in ["sleep.exe", "sleepw.exe"]:
+        src_exe = os.path.join(rundir_parent, helper_exe)
+        if os.path.exists(src_exe):
+            shutil.copy(src_exe, os.path.join(rundir, helper_exe))
+
     # TODO: there is much environment munging and path construction below that won't work on Windows
 
     os.environ["PERL5LIB"] = os.pathsep.join(["..", "."])
