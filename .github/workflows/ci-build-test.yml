@@ -138,7 +138,7 @@ jobs:
         run: ( cd __build && ctest --output-junit test.xml -j 40 -R job_dagman_vars )
 
   winbuild:
-    runs-on: windows-2022
+    runs-on: windows-latest
     steps:
       - name: Set git to use LF
         run: |
