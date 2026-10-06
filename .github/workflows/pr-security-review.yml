@@ -1,0 +1,192 @@
+name: PR Security Review (opencode + NRP LLM)
+
+# Runs an LLM security review of every PR using opencode against the
+# National Research Platform (NRP) managed LLM service, and posts the result
+# as a (single, updated-in-place) comment on the PR.
+#
+# Setup:
+#   - Repository secret NRP_LLM_TOKEN: API token from https://nrp.ai/llmtoken/
+#   - Optional repository variable NRP_MODEL (default: qwen3)
+#   - Optional repository variable OPENCODE_VERSION (default: latest)
+#
+# SECURITY NOTE: this uses pull_request_target so that PRs from forks can use
+# the NRP secret. The PR's code is therefore NEVER checked out or executed
+# here. We check out the trusted base branch, fetch the PR diff as plain data,
+# and run opencode with only read-only tools (read/grep/glob/list) confined to
+# the workspace. No shell, no edits, no web access. The GitHub token is never
+# exposed to the opencode step and is not persisted into .git/config.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-security-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  security-review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      NRP_MODEL: ${{ vars.NRP_MODEL || 'qwen3' }}
+      OPENCODE_VERSION: ${{ vars.OPENCODE_VERSION || 'latest' }}
+      # Cap on diff bytes handed to the model
+      MAX_DIFF_BYTES: 300000
+      COMMENT_MARKER: '<!-- opencode-nrp-security-review -->'
+    steps:
+      - name: Check out base branch (trusted code only)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Fetch PR diff as data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .pr-review
+          if ! gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" > .pr-review/full.diff 2> .pr-review/diff.err; then
+            echo "::warning::Could not fetch PR diff: $(cat .pr-review/diff.err)"
+            : > .pr-review/full.diff
+          fi
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json files \
+            --jq '.files[] | "\(.path) (+\(.additions)/-\(.deletions))"' > .pr-review/files.txt || true
+
+          size=$(stat -c %s .pr-review/full.diff)
+          if [ "$size" -gt "$MAX_DIFF_BYTES" ]; then
+            head -c "$MAX_DIFF_BYTES" .pr-review/full.diff > .pr-review/pr.diff
+            printf '\n\n[... diff truncated: %s of %s bytes shown ...]\n' "$MAX_DIFF_BYTES" "$size" >> .pr-review/pr.diff
+            echo "DIFF_NOTE=Diff was truncated to ${MAX_DIFF_BYTES} of ${size} bytes; later files were not reviewed." >> "$GITHUB_ENV"
+          else
+            mv .pr-review/full.diff .pr-review/pr.diff
+          fi
+          rm -f .pr-review/full.diff .pr-review/diff.err
+          echo "Diff size: $(stat -c %s .pr-review/pr.diff) bytes"
+
+      - name: Install opencode
+        run: |
+          npm install -g "opencode-ai@${OPENCODE_VERSION}"
+          opencode --version
+
+      - name: Run security review
+        id: review
+        env:
+          NRP_API_KEY: ${{ secrets.NRP_LLM_TOKEN }}
+          # Inline config has the highest precedence, so nothing in the
+          # checkout can loosen these permissions.
+          OPENCODE_CONFIG_CONTENT: |
+            {
+              "$schema": "https://opencode.ai/config.json",
+              "autoupdate": false,
+              "share": "disabled",
+              "provider": {
+                "nrp": {
+                  "npm": "@ai-sdk/openai-compatible",
+                  "name": "NRP Nautilus",
+                  "options": {
+                    "baseURL": "https://ellm.nrp-nautilus.io/v1",
+                    "apiKey": "{env:NRP_API_KEY}"
+                  },
+                  "models": {
+                    "${{ vars.NRP_MODEL || 'qwen3' }}": {}
+                  }
+                }
+              },
+              "permission": {
+                "*": "deny",
+                "read": "allow",
+                "grep": "allow",
+                "glob": "allow",
+                "list": "allow"
+              }
+            }
+        run: |
+          if [ -z "$NRP_API_KEY" ]; then
+            echo "::error::NRP_LLM_TOKEN secret is not set"
+            exit 1
+          fi
+          if [ ! -s .pr-review/pr.diff ]; then
+            printf '<!-- BEGIN SECURITY REPORT -->\nThe PR diff could not be retrieved (it may be too large for the GitHub API), so no review was performed.\n<!-- END SECURITY REPORT -->\n' > .pr-review/raw.txt
+            exit 0
+          fi
+          set +e
+          timeout 20m opencode run -m "nrp/${NRP_MODEL}" \
+            "$(cat .github/opencode/security-review-prompt.md)" \
+            < /dev/null > .pr-review/raw.txt 2> .pr-review/stderr.txt
+          rc=$?
+          set -e
+          echo "opencode exit code: $rc"
+          tail -n 50 .pr-review/stderr.txt || true
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+      - name: Build comment body
+        if: always() && steps.review.outcome != 'skipped'
+        run: |
+          python3 - <<'PY'
+          import os, re
+          raw = ""
+          try:
+              with open(".pr-review/raw.txt", encoding="utf-8", errors="replace") as f:
+                  raw = f.read()
+          except FileNotFoundError:
+              pass
+          raw = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", raw)
+          blocks = re.findall(r"<!-- BEGIN SECURITY REPORT -->(.*?)<!-- END SECURITY REPORT -->", raw, re.S)
+          blocks = [b for b in blocks if b.strip()]
+          if blocks:
+              report = blocks[-1].strip()
+          elif raw.strip():
+              report = "_The model did not produce a delimited report; raw output follows._\n\n" + raw.strip()
+          else:
+              report = "_The security review did not produce any output. See the workflow logs._"
+
+          sha = os.environ.get("HEAD_SHA", "")[:10]
+          note = os.environ.get("DIFF_NOTE", "")
+          run_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          parts = [
+              os.environ["COMMENT_MARKER"],
+              "## 🔒 Automated Security Review",
+              f"_Model `{os.environ['NRP_MODEL']}` via NRP, using opencode, on commit `{sha}` ([run]({run_url})). "
+              "This is an automated LLM review and may contain false positives or miss issues._",
+          ]
+          if note:
+              parts.append(f"> ⚠️ {note}")
+          parts.append(report)
+          body = "\n\n".join(parts)
+          limit = 60000
+          if len(body) > limit:
+              body = body[:limit] + "\n\n_[comment truncated]_"
+          with open(".pr-review/comment.md", "w", encoding="utf-8") as f:
+              f.write(body)
+          PY
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+      - name: Post or update PR comment
+        if: always() && hashFiles('.pr-review/comment.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"${COMMENT_MARKER}\")))] | last | .id // empty" \
+            | tail -n 1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -F body=@.pr-review/comment.md > /dev/null
+            echo "Updated comment $existing"
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -F body=@.pr-review/comment.md > /dev/null
+            echo "Created new comment"
+          fi
+
+      - name: Add to job summary
+        if: always() && hashFiles('.pr-review/comment.md') != ''
+        run: cat .pr-review/comment.md >> "$GITHUB_STEP_SUMMARY"
