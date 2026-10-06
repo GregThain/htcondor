@@ -1,53 +1,140 @@
 name: PR Security Review (opencode + NRP LLM)
 
-# Runs an LLM security review of every PR using opencode against the
-# National Research Platform (NRP) managed LLM service, and posts the result
-# as a (single, updated-in-place) comment on the PR.
+# Stage 2 of 2: runs an LLM security review of a PR using opencode against
+# the National Research Platform (NRP) managed LLM service, and posts the
+# result as a (single, updated-in-place) comment on the PR.
+#
+# Stage 1, pr-security-review-trigger.yml, runs on pull_request and uploads
+# the PR number as an artifact. This workflow is triggered by its completion
+# via workflow_run, so it always runs the default branch's copy of this file
+# and has access to secrets, even for PRs from forks.
 #
 # Setup:
 #   - Repository secret NRP_LLM_TOKEN: API token from https://nrp.ai/llmtoken/
 #   - Optional repository variable NRP_MODEL (default: qwen3)
 #   - Optional repository variable OPENCODE_VERSION (default: latest)
 #
-# SECURITY NOTE: this uses pull_request_target so that PRs from forks can use
-# the NRP secret. The PR's code is therefore NEVER checked out or executed
-# here. We check out the trusted base branch, fetch the PR diff as plain data,
-# and run opencode with only read-only tools (read/grep/glob/list) confined to
-# the workspace. No shell, no edits, no web access. The GitHub token is never
-# exposed to the opencode step and is not persisted into .git/config.
+# SECURITY NOTES:
+#   - The stage 1 artifact is untrusted (a PR can rewrite stage 1). We only
+#     take a PR number from it, and verify via the API that that PR's head
+#     commit is the commit stage 1 ran on before doing anything.
+#   - The PR's code is NEVER checked out or executed. We check out the
+#     trusted base commit, fetch the PR diff as plain data, and run opencode
+#     with only read-only tools (read/grep/glob/list) confined to the
+#     workspace. No shell, no edits, no web access.
+#   - The GitHub token is never exposed to the opencode step and is not
+#     persisted into .git/config.
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_run:
+    workflows: ["PR Security Review Trigger"]
+    types: [completed]
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr-security-review-${{ github.event.pull_request.number }}
+  group: pr-security-review-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 jobs:
+  verify:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      pull-requests: read
+    outputs:
+      ok: ${{ steps.verify.outputs.ok }}
+      pr_number: ${{ steps.verify.outputs.pr_number }}
+      head_sha: ${{ steps.verify.outputs.head_sha }}
+      base_sha: ${{ steps.verify.outputs.base_sha }}
+    steps:
+      - name: Download and verify PR info
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          info="$RUNNER_TEMP/pr-info"
+          mkdir -p "$info"
+          if ! gh run download "$TRIGGER_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              -n pr-security-review-info -D "$info"; then
+            echo "No PR info artifact (e.g. draft PR); nothing to review."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pr=$(head -c 32 "$info/pr_number" | tr -d '[:space:]')
+          if ! [[ "$pr" =~ ^[0-9]{1,10}$ ]]; then
+            echo "::error::Invalid PR number in artifact"
+            exit 1
+          fi
+
+          IFS=$'\t' read -r head_sha base_sha state draft < <(
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr}" \
+              --jq '[.head.sha, .base.sha, .state, (.draft|tostring)] | @tsv')
+
+          if [ "$head_sha" != "$TRIGGER_HEAD_SHA" ]; then
+            echo "PR #$pr head is $head_sha, but the trigger ran on $TRIGGER_HEAD_SHA."
+            echo "Either the PR was updated since (a newer run will review it) or the artifact is bogus; skipping."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$state" != "open" ] || [ "$draft" = "true" ]; then
+            echo "PR #$pr is $state (draft=$draft); skipping."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Verified PR #$pr at $head_sha (base $base_sha)"
+          {
+            echo "ok=true"
+            echo "pr_number=$pr"
+            echo "head_sha=$head_sha"
+            echo "base_sha=$base_sha"
+          } >> "$GITHUB_OUTPUT"
+
   security-review:
-    if: github.event.pull_request.draft == false
+    needs: verify
+    if: needs.verify.outputs.ok == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: write
     env:
-      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_NUMBER: ${{ needs.verify.outputs.pr_number }}
+      HEAD_SHA: ${{ needs.verify.outputs.head_sha }}
       NRP_MODEL: ${{ vars.NRP_MODEL || 'qwen3' }}
       OPENCODE_VERSION: ${{ vars.OPENCODE_VERSION || 'latest' }}
       # Cap on diff bytes handed to the model
       MAX_DIFF_BYTES: 300000
       COMMENT_MARKER: '<!-- opencode-nrp-security-review -->'
     steps:
-      - name: Check out base branch (trusted code only)
+      - name: Check out base commit (trusted code only)
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ needs.verify.outputs.base_sha }}
           persist-credentials: false
+
+      # The PR's base branch (e.g. a release branch) may not contain the
+      # review prompt, so always take it from the default branch, which is
+      # where this workflow itself runs from.
+      - name: Fetch review prompt from default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .review-tooling
+          sparse-checkout: .github/opencode
+          persist-credentials: false
+
+      - name: Stage review prompt
+        run: |
+          cp .review-tooling/.github/opencode/security-review-prompt.md "$RUNNER_TEMP/"
+          rm -rf .review-tooling
 
       - name: Fetch PR diff as data
         env:
@@ -120,7 +207,7 @@ jobs:
           fi
           set +e
           timeout 20m opencode run -m "nrp/${NRP_MODEL}" \
-            "$(cat .github/opencode/security-review-prompt.md)" \
+            "$(cat "$RUNNER_TEMP/security-review-prompt.md")" \
             < /dev/null > .pr-review/raw.txt 2> .pr-review/stderr.txt
           rc=$?
           set -e
@@ -168,8 +255,6 @@ jobs:
           with open(".pr-review/comment.md", "w", encoding="utf-8") as f:
               f.write(body)
           PY
-        env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Post or update PR comment
         if: always() && hashFiles('.pr-review/comment.md') != ''
