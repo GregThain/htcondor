@@ -29,9 +29,10 @@ name: PR Security Review (opencode + NRP LLM)
 #   - PRIVACY: in a public repo, Actions logs, job summaries and artifacts are
 #     world-readable, as are code scanning annotations on PRs. So the model's
 #     output is never printed to the log or uploaded as an artifact, and the
-#     SARIF is uploaded against a synthetic ref
-#     (refs/heads/llm-security-review/pr-N) rather than the PR's ref, so that
-#     GitHub does not attach the findings to the PR.
+#     SARIF is uploaded against a separate branch, llm-security-review/pr-N,
+#     pointing at the PR head (the code scanning API requires the ref to
+#     exist), rather than the PR's ref, so that GitHub does not attach the
+#     findings to the PR.
 
 on:
   workflow_run:
@@ -111,7 +112,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      # contents: write is only to create the llm-security-review/pr-N
+      # branch that the SARIF is uploaded against. The token is never
+      # exposed to the opencode step.
+      contents: write
       pull-requests: write
       security-events: write
     env:
@@ -335,6 +339,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ref="refs/heads/llm-security-review/pr-${PR_NUMBER}"
+          # git/ref/ (singular) is an exact-match lookup; git/refs/ prefix-matches.
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/${ref#refs/}" --silent 2> /dev/null; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/${ref}" \
+              -f sha="$HEAD_SHA" -F force=true --silent
+            echo "Moved $ref to $HEAD_SHA"
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="$ref" -f sha="$HEAD_SHA" --silent
+            echo "Created $ref at $HEAD_SHA"
+          fi
           python3 - "$ref" <<'PY'
           import base64, gzip, json, os, sys
           with open(".pr-review/results.sarif", "rb") as f:
