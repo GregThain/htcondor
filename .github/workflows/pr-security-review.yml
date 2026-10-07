@@ -1,8 +1,10 @@
 name: PR Security Review (opencode + NRP LLM)
 
 # Stage 2 of 2: runs an LLM security review of a PR using opencode against
-# the National Research Platform (NRP) managed LLM service, and posts the
-# result as a (single, updated-in-place) comment on the PR.
+# the National Research Platform (NRP) managed LLM service. Findings are
+# uploaded as SARIF to code scanning, which only users with write access can
+# see. The PR gets only a (single, updated-in-place) comment saying a review
+# ran, with no findings in it.
 #
 # Stage 1, pr-security-review-trigger.yml, runs on pull_request and uploads
 # the PR number as an artifact. This workflow is triggered by its completion
@@ -24,6 +26,12 @@ name: PR Security Review (opencode + NRP LLM)
 #     workspace. No shell, no edits, no web access.
 #   - The GitHub token is never exposed to the opencode step and is not
 #     persisted into .git/config.
+#   - PRIVACY: in a public repo, Actions logs, job summaries and artifacts are
+#     world-readable, as are code scanning annotations on PRs. So the model's
+#     output is never printed to the log or uploaded as an artifact, and the
+#     SARIF is uploaded against a synthetic ref
+#     (refs/heads/llm-security-review/pr-N) rather than the PR's ref, so that
+#     GitHub does not attach the findings to the PR.
 
 on:
   workflow_run:
@@ -105,6 +113,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      security-events: write
     env:
       PR_NUMBER: ${{ needs.verify.outputs.pr_number }}
       HEAD_SHA: ${{ needs.verify.outputs.head_sha }}
@@ -113,6 +122,7 @@ jobs:
       # Cap on diff bytes handed to the model
       MAX_DIFF_BYTES: 300000
       COMMENT_MARKER: '<!-- opencode-nrp-security-review -->'
+      SARIF_TOOL_NAME: opencode-nrp-security-review
     steps:
       - name: Check out base commit (trusted code only)
         uses: actions/checkout@v6
@@ -212,14 +222,16 @@ jobs:
           rc=$?
           set -e
           echo "opencode exit code: $rc"
-          tail -n 50 .pr-review/stderr.txt || true
+          # Don't print the model's stdout or stderr: the log is public.
+          echo "output: $(stat -c %s .pr-review/raw.txt) bytes, stderr: $(stat -c %s .pr-review/stderr.txt) bytes"
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
 
-      - name: Build comment body
+      - name: Convert report to SARIF
         if: always() && steps.review.outcome != 'skipped'
         run: |
           python3 - <<'PY'
-          import os, re
+          import json, os, re
+
           raw = ""
           try:
               with open(".pr-review/raw.txt", encoding="utf-8", errors="replace") as f:
@@ -227,51 +239,150 @@ jobs:
           except FileNotFoundError:
               pass
           raw = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", raw)
-          blocks = re.findall(r"<!-- BEGIN SECURITY REPORT -->(.*?)<!-- END SECURITY REPORT -->", raw, re.S)
-          blocks = [b for b in blocks if b.strip()]
-          if blocks:
-              report = blocks[-1].strip()
-          elif raw.strip():
-              report = "_The model did not produce a delimited report; raw output follows._\n\n" + raw.strip()
-          else:
-              report = "_The security review did not produce any output. See the workflow logs._"
 
-          sha = os.environ.get("HEAD_SHA", "")[:10]
-          note = os.environ.get("DIFF_NOTE", "")
-          run_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-          parts = [
-              os.environ["COMMENT_MARKER"],
-              "## 🔒 Automated Security Review",
-              f"_Model `{os.environ['NRP_MODEL']}` via NRP, using opencode, on commit `{sha}` ([run]({run_url})). "
-              "This is an automated LLM review and may contain false positives or miss issues._",
-          ]
-          if note:
-              parts.append(f"> ⚠️ {note}")
-          parts.append(report)
-          body = "\n\n".join(parts)
-          limit = 60000
-          if len(body) > limit:
-              body = body[:limit] + "\n\n_[comment truncated]_"
-          with open(".pr-review/comment.md", "w", encoding="utf-8") as f:
-              f.write(body)
+          changed = []
+          try:
+              with open(".pr-review/files.txt", encoding="utf-8") as f:
+                  for l in f:
+                      changed.append(re.sub(r" \(\+\d+/-\d+\)$", "", l.rstrip("\n")))
+          except FileNotFoundError:
+              pass
+          changed = [c for c in changed if c]
+
+          report, problem = None, None
+          blocks = [b.strip() for b in re.findall(
+              r"<!-- BEGIN SECURITY REPORT -->(.*?)<!-- END SECURITY REPORT -->", raw, re.S) if b.strip()]
+          if not blocks:
+              problem = "The model did not produce a delimited report."
+          else:
+              text = re.sub(r"^```(?:json)?\s*|\s*```$", "", blocks[-1])
+              try:
+                  report = json.loads(text)
+                  if not isinstance(report, dict) or not isinstance(report.get("findings", []), list):
+                      raise ValueError("unexpected JSON shape")
+              except ValueError as e:
+                  problem = f"The model's report was not valid JSON ({e})."
+
+          levels = {"critical": "error", "high": "error", "medium": "warning", "low": "note"}
+          scores = {"critical": "9.5", "high": "8.0", "medium": "5.5", "low": "2.0"}
+          rules, results = {}, []
+
+          def add(severity, title, path, line, message):
+              sev = str(severity).strip().lower()
+              if sev not in levels:
+                  sev = "medium"
+              rule_id = "llm/" + (re.sub(r"[^a-z0-9]+", "-", str(title).lower()).strip("-")[:60] or "finding")
+              rules.setdefault(rule_id, {
+                  "id": rule_id,
+                  "name": rule_id,
+                  "shortDescription": {"text": str(title)[:200] or "LLM security finding"},
+                  "properties": {"tags": ["security", "llm"], "security-severity": scores[sev]},
+              })
+              path = str(path or "").removeprefix("./")
+              if path not in changed:
+                  if path:
+                      message = f"(Model reported location `{path}:{line}`, which is not a changed file.)\n\n" + message
+                  path, line = (changed[0] if changed else "README.md"), 1
+              try:
+                  line = max(1, int(line))
+              except (TypeError, ValueError):
+                  line = 1
+              results.append({
+                  "ruleId": rule_id,
+                  "level": levels[sev],
+                  "message": {"text": message[:20000]},
+                  "locations": [{"physicalLocation": {
+                      "artifactLocation": {"uri": path},
+                      "region": {"startLine": line}}}],
+              })
+
+          if report is not None:
+              for f in report.get("findings", []):
+                  if not isinstance(f, dict):
+                      continue
+                  msg = "\n\n".join(
+                      f"**{k.title()}:** {f[k]}" for k in ("issue", "scenario", "fix") if f.get(k))
+                  add(f.get("severity"), f.get("title", "Finding"), f.get("path"), f.get("line"),
+                      f"[{f.get('severity', '?')}] {f.get('title', '')}\n\n{msg}")
+          else:
+              # Still deliver whatever the model said, privately.
+              add("low", "Unparseable LLM security review output", None, 1,
+                  problem + "\n\nRaw model output:\n\n" + (raw.strip()[-15000:] or "(empty)"))
+
+          sarif = {
+              "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+              "version": "2.1.0",
+              "runs": [{
+                  "tool": {"driver": {
+                      "name": os.environ["SARIF_TOOL_NAME"],
+                      "informationUri": "https://opencode.ai",
+                      "version": os.environ["NRP_MODEL"],
+                      "rules": list(rules.values()),
+                  }},
+                  "automationDetails": {"id": f"{os.environ['SARIF_TOOL_NAME']}/"},
+                  "results": results,
+              }],
+          }
+          with open(".pr-review/results.sarif", "w", encoding="utf-8") as f:
+              json.dump(sarif, f)
+          # Counts only; the log is public.
+          print(f"SARIF written: parsed={'yes' if report is not None else 'no'}")
           PY
 
-      - name: Post or update PR comment
-        if: always() && hashFiles('.pr-review/comment.md') != ''
+      - name: Upload SARIF to code scanning (private to maintainers)
+        if: always() && hashFiles('.pr-review/results.sarif') != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          existing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
-            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"${COMMENT_MARKER}\")))] | last | .id // empty" \
-            | tail -n 1)
-          if [ -n "$existing" ]; then
-            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -F body=@.pr-review/comment.md > /dev/null
-            echo "Updated comment $existing"
-          else
-            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -F body=@.pr-review/comment.md > /dev/null
-            echo "Created new comment"
-          fi
+          ref="refs/heads/llm-security-review/pr-${PR_NUMBER}"
+          python3 - "$ref" <<'PY'
+          import base64, gzip, json, os, sys
+          with open(".pr-review/results.sarif", "rb") as f:
+              sarif = base64.b64encode(gzip.compress(f.read())).decode()
+          with open(".pr-review/upload.json", "w") as f:
+              json.dump({"commit_sha": os.environ["HEAD_SHA"], "ref": sys.argv[1],
+                         "sarif": sarif, "tool_name": os.environ["SARIF_TOOL_NAME"]}, f)
+          PY
+          id=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/code-scanning/sarifs" \
+                 --input .pr-review/upload.json --jq .id)
+          echo "Uploaded SARIF $id for $HEAD_SHA as $ref"
+          for _ in $(seq 1 30); do
+            status=$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/sarifs/${id}" \
+                       --jq '.processing_status + " " + ((.errors // []) | join("; "))')
+            echo "processing: $status"
+            case "$status" in
+              complete*) break ;;
+              failed*) exit 1 ;;
+            esac
+            sleep 10
+          done
 
-      - name: Add to job summary
-        if: always() && hashFiles('.pr-review/comment.md') != ''
-        run: cat .pr-review/comment.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Post or update PR comment
+        if: always() && steps.review.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          alerts_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/security/code-scanning?query=is%3Aopen+branch%3Allm-security-review%2Fpr-${PR_NUMBER}+tool%3A${SARIF_TOOL_NAME}"
+          {
+            echo "$COMMENT_MARKER"
+            echo "## 🔒 Automated Security Review"
+            echo
+            echo "An automated LLM security review (model \`${NRP_MODEL}\` via NRP, using opencode) ran on commit \`${HEAD_SHA:0:10}\` ([run](${run_url}))."
+            echo
+            echo "Results are visible only to maintainers, in [code scanning](${alerts_url})."
+            if [ -n "${DIFF_NOTE:-}" ]; then
+              echo
+              echo "> ⚠️ ${DIFF_NOTE}"
+            fi
+          } > .pr-review/comment.md
+          # Delete and re-post rather than edit: a comment's edit history is
+          # public, and older versions of this workflow put findings in it.
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"${COMMENT_MARKER}\"))) | .id" \
+          | while read -r id; do
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${id}"
+              echo "Deleted comment $id"
+            done
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -F body=@.pr-review/comment.md > /dev/null
+          echo "Created new comment"
