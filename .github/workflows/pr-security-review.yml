@@ -32,7 +32,8 @@ name: PR Security Review (opencode + NRP LLM)
 #     SARIF is uploaded against a separate branch, llm-security-review/pr-N,
 #     pointing at the PR head (the code scanning API requires the ref to
 #     exist), rather than the PR's ref, so that GitHub does not attach the
-#     findings to the PR.
+#     findings to the PR. pr-security-review-cleanup.yml removes the branch
+#     and its analyses once the PR is closed.
 
 on:
   workflow_run:
