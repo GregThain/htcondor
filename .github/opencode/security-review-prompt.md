@@ -46,26 +46,34 @@ Do not report style issues, non-security bugs, or speculative concerns you
 cannot tie to specific lines of the diff. Prefer a few well-supported findings
 over many weak ones. If you find nothing of substance, say so plainly.
 
-Your final message must contain the report, in GitHub-flavored Markdown, placed
+Your final message must contain the report as a single JSON object placed
 between these two marker lines exactly (the markers themselves on their own
-lines):
+lines, no Markdown code fence):
 
 <!-- BEGIN SECURITY REPORT -->
 <!-- END SECURITY REPORT -->
 
-Use this structure inside the markers:
+The JSON object must have this shape:
 
-### Summary
-One or two sentences: overall risk (None / Low / Medium / High / Critical) and
-what the PR changes from a security standpoint.
+{
+  "risk": "None" | "Low" | "Medium" | "High" | "Critical",
+  "summary": "One or two sentences on what the PR changes from a security standpoint.",
+  "findings": [
+    {
+      "severity": "Low" | "Medium" | "High" | "Critical",
+      "title": "Short title",
+      "path": "path/to/file.cpp",
+      "line": 123,
+      "issue": "What is wrong and why it is exploitable or dangerous.",
+      "scenario": "Concrete attacker input or conditions that trigger it.",
+      "fix": "Specific, minimal remediation."
+    }
+  ]
+}
 
-### Findings
-For each finding, most severe first:
-
-#### [Severity] Short title
-- **Location:** `path/to/file.cpp:LINE`
-- **Issue:** what is wrong and why it is exploitable or dangerous.
-- **Scenario:** concrete attacker input or conditions that trigger it.
-- **Suggested fix:** specific, minimal remediation.
-
-If there are no findings, write "No security issues identified in this change."
+`path` must be one of the paths listed in `.pr-review/files.txt` (without the
+`(+N/-M)` suffix). `line` must be the line number in the *new* version of that
+file, which you compute from the `+` side of the diff hunk headers
+(`@@ -a,b +c,d @@`), because the new version of changed files is not present in
+the working directory. List findings most severe first. If there are no
+findings, use an empty `findings` array.
