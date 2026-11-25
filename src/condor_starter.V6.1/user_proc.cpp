@@ -414,16 +414,14 @@ static int open_stdFile_win32(const char * file, int flags, bool inheritable, DW
 {
 	int fd = -1;
 
-	// This handle becomes the job's stdout/stderr, so give it ordinary GENERIC_WRITE
-	// access, the same as the c-runtime _open() did before.  When jobs were given an
-	// append-only handle (FILE_APPEND_DATA without FILE_WRITE_DATA), all of their
-	// stdout was lost on GitHub Actions Windows runners.  For _O_APPEND we
-	// instead position the handle at end-of-file below.  Tasks run one after another,
-	// so that is enough for each task to append to the previous task's output.
-	// Note that we do NOT pass _O_APPEND to _open_osfhandle(); the starter never writes
-	// through this fd, and the child does not inherit c-runtime flags anyway.
+	// if we want Win32 file handle in append mode, we have to open the handle in a diffent file mode
+	// than what the c-runtime uses:  FILE_APPEND_DATA but NOT FILE_WRITE_DATA or GENERIC_WRITE.
+	// Note that we do NOT pass _O_APPEND to _open_osfhandle() since what that does in the current (broken)
+	// c-runtime is tell it to call seek before every write, but you *can't* seek an append-only file...
 	DWORD access_mode = GENERIC_READ;
-	if (flags & _O_RDWR) {
+	if (flags & _O_APPEND) {
+		access_mode = FILE_APPEND_DATA; // append but not GENERIC_WRITE !!
+	} else if (flags & _O_RDWR) {
 		access_mode = GENERIC_READ | GENERIC_WRITE;
 	} else if (flags & _O_WRONLY) {
 		access_mode = GENERIC_WRITE;
@@ -456,16 +454,6 @@ static int open_stdFile_win32(const char * file, int flags, bool inheritable, DW
 		fd = -1;
 		err = GetLastError();
 	} else {
-		// emulate append: start writing at the current end of the file.
-		// (Not meaningful for NUL or other character devices, so only for disk files.)
-		if ((flags & _O_APPEND) && GetFileType(hf) == FILE_TYPE_DISK) {
-			LARGE_INTEGER zero{};
-			BOOL seek_ok = SetFilePointerEx(hf, zero, nullptr, FILE_END);
-			if ( ! seek_ok) {
-				dprintf(D_ALWAYS, "Warning: could not seek to end of %s (error %u), output may overwrite\n",
-					file, GetLastError());
-			}
-		}
 		err = 0;
 		fd = _open_osfhandle((intptr_t)hf, flags & (/*_O_APPEND | */_O_RDONLY | _O_RDWR | _O_TEXT | _O_WTEXT));
 		if (fd < 0) {
