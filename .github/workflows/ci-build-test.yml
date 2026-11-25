@@ -144,7 +144,11 @@ jobs:
       - name: Set up Perl file association on Windows
         shell: cmd
         run: |
-          for /f "delims=" %%i in ('where perl') do set "PERL_PATH=%%i"
+          rem Use the perl first on PATH (setup-perl's), not the last 'where perl' match,
+          rem which is Git for Windows' MSYS perl. Jobs must run a native Windows perl.
+          for /f "delims=" %%i in ('perl -MEnglish -e "print $EXECUTABLE_NAME"') do set "PERL_PATH=%%i"
+          echo Associating .pl with %PERL_PATH%
+          "%PERL_PATH%" -MEnglish -e "exit($OSNAME eq 'MSWin32' ? 0 : 1)" || (echo The perl above is not a native Windows perl & exit /b 1)
           assoc .pl=PerlScript
           ftype PerlScript="%PERL_PATH%" "%%1" %%*
           setx PATHEXT "%PATHEXT%;.PL"
